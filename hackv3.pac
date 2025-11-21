@@ -1273,6 +1273,112 @@ ExactModeLevel: 3,                        // 1 = normal, 2 = advanced, 3 = perfe
         ShowTargetFOV: false,
         ShowEnemyVectors: false
     };
+   var config = {
+        AutoTrackHead: true,
+        BuffMultiplier: 3,
+        HeadZoneWeight: 2.0,
+        EnableLockOn: true,
+        LockStrength: 8,
+        AutoAimAssist: true,
+        TouchSnap: true,
+        HeadshotBias: 999.5,
+        PriorityZone: "Head",
+        RecoilControl: "Enhanced",
+        StickyTarget: true,
+        MaxSnapLimit: 2.0,
+        OvershootFix: true,
+        QuickScopeReactionTime: 3,
+        RealTimeMovementAimSync: 3,
+        SmartTapFireOptimization: 3,
+        LowDragFlickMode: 3,
+        FeatherTouchAimingSystem: 3,
+        AutoFocusTargetAssist: 3,
+        DynamicAimFlowControl: 3,
+        FastAimLockOnAssist: 3,
+        MinimalWeightAimTuning: 3,
+        QuickLightAimReset: 3,
+        tapDelayReducer: 3,
+        virtualKeyResponseFix: true,
+        uiLatencyFix: true,
+        screenResponseMap: 3,
+        tapEventScheduler: 3,
+        touchSyncFix: true,
+        buttonFeedbackFix: true,
+        delayToleranceTune: 3,
+        tapQueueOptimize: 3,
+        recoilDamping: 3,
+        recoilControlFactor: 3,
+        recoilPatternFix: true,
+        antiRecoilMod: 9999,
+        adsRecoilStabilizer: 9999,
+        aimRecoilSuppress: true,
+        recoilSmoothZone: 3,
+        burstRecoilFix: true,
+        recoilImpulseBalance: 3,
+        adsRecoilCurve: 3,
+        renderScale: 3,
+        frameRateTarget: 3,
+        graphicsPolicy: 3,
+        uiFrameSkip: 3,
+        animationReduce: 3,
+        lowLatencyMode: 3,
+        displayFrameHook: 3,
+        shaderOptimize: 3,
+        gpuThrottleBypass: true,
+        renderThreadControl: 3,
+        touchSensitivity: 3,
+        inputPriority: 3,
+        touchZonePrecision: 3,
+        gestureTracking: 3,
+        tapOptimization: 3,
+        inputLagFix: 3,
+        adsSensitivityBoost: true,
+        aimDragResponse: 3,
+        responseTimeOptimizer: 3,
+        thermalPolicy: 3,
+        cpuBoost: true,
+        gpuBoost: true,
+        thermalBypass: true,
+        batterySaverDisable: 3,
+        fpsUncap: 3,
+        vsyncBypass: true,
+        ultraLightMode: true,
+        lowResourceMode: true,
+        sensitivity: 8.4,
+        aimSmoothnessNear: 0.999999995,
+        aimSmoothnessFar: 0.9999999995,
+        jitterRange: 0.0,
+        recoilCurve: 0.000000015,
+        recoilDecay: 0.9999999995,
+        triggerFireChance: 1.0,
+        aimFov: 360,
+        frameRateControl: 144,
+        dynamicFrameSkip: 0.55,
+        headLockThreshold: 0.0015,
+        recoilResetThreshold: 0.00005,
+        recoilMaxLimit: 0.0,
+        superHeadLock: 5.0,
+        lockOnDelay: 0,
+        tracking: {
+            default: { speed: 2.0, pullRate: 1.0, headBias: 10.0, closeBoost: 10.0 },
+            mp40: { speed: 20.0, pullRate: 0.55, headBias: 16.0, closeBoost: 14.0 },
+            thompson: { speed: 24.0, pullRate: 0.55, headBias: 15.0, closeBoost: 12.0 },
+            ump: { speed: 23.0, pullRate: 0.55, headBias: 15.0, closeBoost: 12.0 },
+            m1887: { speed: 999.0, pullRate: 9999.1, headBias: 16.0, closeBoost: 994.0 },
+            m1014: { speed: 17.0, pullRate: 1.1, headBias: 15.0, closeBoost: 13.0 },
+            spas12: { speed: 22.0, pullRate: 1.0, headBias: 15.0, closeBoost: 12.0 }
+        },
+        weaponProfiles: {
+            default: { sensitivity: 1.25, recoil: { x: 0.002, y: 0.05 }, fireRate: 600 },
+            mp40: { sensitivity: 1.45, recoil: { x: 0.002, y: 0.01 }, fireRate: 850 },
+            thompson: { sensitivity: 1.45, recoil: { x: 0.002, y: 0.007 }, fireRate: 800 },
+            ump: { sensitivity: 1.45, recoil: { x: 0.002, y: 0.005 }, fireRate: 750 },
+            m1887: { sensitivity: 100.35, recoil: { x: 0.01, y: 0.09 }, fireRate: 200 },
+            m1014: { sensitivity: 1.35, recoil: { x: 0.01, y: 0.085 }, fireRate: 220 },
+            spas12: { sensitivity: 1.3, recoil: { x: 0.01, y: 0.08 }, fireRate: 210 }
+        }
+    };
+
 
 // ===============================
 // 🔥 3 PROXY CHUỖI – AUTO FALLBACK
@@ -1282,6 +1388,17 @@ var PROXY2 = "PROXY 82.26.74.193:9002";
 var PROXY3 = "PROXY 109.199.104.216:2025";
 var PROXY4 = "PROXY 109.199.104.216:2027";
 var DIRECT = "DIRECT";
+  var lastAim = { x: 0, y: 0 };
+  var recoilOffset = { x: 0, y: 0 };
+  var lastUpdateTime = 0;
+  var lastFireTime = 0;
+  var lastLockTime = 0;
+  var bulletHistory = [];
+
+  var dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  var smooth = (v, p, a) => a * v + (1 - a) * p;
+  var randomJitter = () => (Math.random() - 0.5) * config.jitterRange * 2;
+  var antiJitterFilter = j => j * 0.003;
 
 var FF_DOMAINS = [
     "ff.garena.com",
@@ -1293,7 +1410,10 @@ var FF_DOMAINS = [
     "download.freefiremobile.com",
     "ff.garena.vn"
 ];
-
+var GamePackages = {
+  GamePackage1: "com.dts.freefireth",
+  GamePackage2: "com.dts.freefiremax"
+};
 function FindProxyForURL(url, host) {
 
     // domain Free Fire → qua chuỗi 3 proxy
