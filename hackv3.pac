@@ -1,363 +1,351 @@
 var SteadyHoldSystem = {
-
     Enabled: true,
-
-    // ——————————————————————————
-    //   CORE STEADY HOLD ENGINE
-    // ——————————————————————————
     SteadyHold: true,
-    SteadyStrength: 1.15,              // lực giữ ổn định (cao = cực vững)
-    HoldFriction: 0.82,                // ma sát giữ tâm để tránh bật
-    HoldMemory: 2.0,                  // giữ hướng kéo trong 1 thời gian
-    StabilizationTime: 40,             // ms để ổn định sau khi drag
+    SteadyStrength: 1.5,
+    HoldFriction: 0.95,
+    HoldMemory: 4.0,
+    StabilizationTime: 60,
 
-    // ——————————————————————————
-    //   ANTI-SHAKE / ANTI-JITTER
-    // ——————————————————————————
     AntiShake: true,
-    ShakeReduction: 0.65,              // giảm rung tay mạnh
-    MicroShakeFilter: 0.0035,          // bỏ qua dao động quá nhỏ
-    TapJitterDamping: 0.72,            // chống loạn khi chạm mạnh màn
+    ShakeReduction: 0.95,
+    MicroShakeFilter: 0.008,
+    TapJitterDamping: 0.95,
 
-    // ——————————————————————————
-    //   DRAG STABILITY
-    // ——————————————————————————
     DragHoldAssist: true,
-    DragLineLock: 0.88,                // giữ đường drag thẳng – không trượt
-    DragDirectionStabilizer: 0.66,     // giữ hướng drag ổn định
-    DragReleaseRecovery: 0.55,         // hồi tâm mượt sau khi buông tay
+    DragLineLock: 1.0,
+    DragDirectionStabilizer: 0.9,
+    DragReleaseRecovery: 0.9,
 
-    // ——————————————————————————
-    //   HEADLOCK HOLD & PRECISION
-    // ——————————————————————————
     HeadHoldAssist: true,
-    HeadPullStrength: 0.52,            // kéo nhẹ tâm về head để chống drift
-    HeadToleranceAngle: 360.0,           // nếu lệch <2.8° → tự ổn định
+    HeadPullStrength: 1.0,
+    HeadToleranceAngle: 999.0,
 
-    // ——————————————————————————
-    //   ANTI-BOUNCE CONTROL
-    // ——————————————————————————
     AntiBounce: true,
-    BounceDamping: 0.68,               // chống bật lại khi đổi hướng
-    BounceThreshold: 0.012,            // vượt quá → kích hoạt damping
+    BounceDamping: 1.0,
+    BounceThreshold: 0.03,
 
-    // ——————————————————————————
-    //   TOUCH INPUT SMOOTHER
-    // ——————————————————————————
     TouchSmoothing: true,
-    TouchSmoothStrength: 0.88,         // mượt hóa cảm ứng
-    AccelDamping: 0.58,                // giảm tăng tốc đột ngột
-    StabilizedDragRatio: 0.017,        // px chuẩn để giữ ổn định
+    TouchSmoothStrength: 1.0,
+    AccelDamping: 0.95,
+    StabilizedDragRatio: 0.03,
 
-    // ——————————————————————————
-    //   VELOCITY-AWARE STEADY HOLD
-    // ——————————————————————————
     VelocityAware: true,
-    EnemyVelocityImpact: 0.26,         // tốc độ enemy càng cao → giữ càng chặt
-    DragVelocitySync: 0.40,            // đồng bộ drag với velocity enemy
+    EnemyVelocityImpact: 1.0,
+    DragVelocitySync: 0.9,
 
-    // ——————————————————————————
-    //   CAMERA ROTATION STABILITY
-    // ——————————————————————————
     CameraSteady: true,
-    PitchStabilizer: 0.24,             // giữ ổn định khi nhìn lên/xuống
-    YawStabilizer: 0.26,               // giữ ổn định khi xoay ngang
-    TiltStabilizer: 0.20               // giữ ổn định khi nghiêng cam
+    PitchStabilizer: 0.8,
+    YawStabilizer: 0.8,
+    TiltStabilizer: 0.7
 };
 
 var DriftFixSystem = {
-
-    Enabled: true,                        // bật toàn bộ DriftFix
-
-    // ——————————————————————————
-    //     DRIFT NEUTRALIZER CORE
-    // ——————————————————————————
+    Enabled: true,
     DriftNeutralizer: true,
-    DriftStrength: 1.25,                  // mức khử drift (cao = bám mạnh)
-    DriftMemory: 0.82,                    // ghi nhớ hướng drift → triệt ngược lại
-    DriftDecay: 0.65,                     // tốc độ giảm drift theo thời gian
+    DriftStrength: 1.5,
+    DriftMemory: 1.0,
+    DriftDecay: 0.95,
 
-    // ——————————————————————————
-    //     HARD ANTI-OFFSET CORRECTION
-    // ——————————————————————————
     AntiOffsetSystem: true,
-    OffsetCorrectionSpeed: 0.78,          // tốc độ kéo lại khi trôi khỏi đầu
-    OffsetMaxAngle: 360.0,                  // nếu lệch <5° → auto kéo về
+    OffsetCorrectionSpeed: 1.0,
+    OffsetMaxAngle: 999.0,
+    HeadTargetOffset: { x: 0.0, y: 0.014, z: 0.0 },
 
-    HeadTargetOffset: {                   // điểm chuẩn để kéo về
-        x: 0.0,
-        y: 0.014,
-        z: 0.0
-    },
+    AntiTilt: 1.0,
+    AntiSlide: 1.0,
+    AntiVerticalDrift: 1.0,
 
-    // ——————————————————————————
-    //     ANTI-TILT & ANTI-SLIDE
-    // ——————————————————————————
-    AntiTilt: 0.68,                        // chống trôi do xoay cam nhẹ
-    AntiSlide: 0.62,                       // chống trượt khi drag ngang
-    AntiVerticalDrift: 0.71,               // chống tụt tâm xuống cổ
-
-    // ——————————————————————————
-    //     MICRO STABILITY ENGINE
-    // ——————————————————————————
     MicroStability: true,
-    MicroDampingStrength: 0.55,           // giảm xung phản lực nhỏ khi kéo
-    NoiseFloor: 0.003,                    // bỏ qua chuyển động quá nhỏ
-    AntiShakeImpulse: 0.035,              // chống rung ngón tay
+    MicroDampingStrength: 1.0,
+    NoiseFloor: 0.01,
+    AntiShakeImpulse: 0.1,
 
-    // ——————————————————————————
-    //     ANTI-DRIFT DURING DRAG
-    // ——————————————————————————
     DragDriftFix: true,
-    DragHoldStrength: 0.88,               // giữ tâm trong đường drag
-    DragRealignment: 0.72,                // điều chỉnh lại sau khi buông tay
-    DragPredictiveComp: 0.40,             // dự đoán hướng trôi
+    DragHoldStrength: 1.0,
+    DragRealignment: 0.95,
+    DragPredictiveComp: 0.85,
 
-    // ——————————————————————————
-    //     LONG TERM DRIFT CORRECTION
-    // ——————————————————————————
     LongTermCorrection: true,
-    LongTermPullback: 0.52,               // kéo về sau khi trôi lâu
-    LongTermJitterFilter: 0.70,           // lọc jitter kéo dài
-    LongTermMaxDrift: 0.016,              // nếu vượt mức này → reset drift
+    LongTermPullback: 1.0,
+    LongTermJitterFilter: 1.0,
+    LongTermMaxDrift: 0.03,
 
-    // ——————————————————————————
-    //     VELOCITY-AWARE DRIFT FIX
-    // ——————————————————————————
     VelocityAwareFix: true,
-    EnemyVelocityImpact: 0.35,            // tính vận tốc enemy → chỉnh drift
-    SmoothVelocityBlend: 0.60,            // hoà mượt 2 hướng drift–velocity
+    EnemyVelocityImpact: 1.0,
+    SmoothVelocityBlend: 0.95,
 
-    // ——————————————————————————
-    //     CAMERA ROTATION DRIFTFIX
-    // ——————————————————————————
     RotationAware: true,
-    PitchCompensation: 0.22,              // sửa drift khi ngước xuống/lên
-    YawCompensation: 0.18,                // sửa drift khi xoay ngang
-    RollCompensation: 0.14,               // sửa drift khi nghiêng màn hình
+    PitchCompensation: 0.95,
+    YawCompensation: 0.95,
+    RollCompensation: 0.95,
 
-    // ——————————————————————————
-    //     SNAPBACK ENGINE
-    // ——————————————————————————
     SnapBackFix: true,
-    SnapBackStrength: 0.85,               // kéo tâm trở lại head ngay lập tức
-    SnapBackWindow: 80,                   // tính theo ms
-    SnapBackThreshold: 0.007              // lệch > → kích snapback
+    SnapBackStrength: 1.0,
+    SnapBackWindow: 120,
+    SnapBackThreshold: 0.02
 };
+
 
 var AnchorAimSystem = {
 
-    Enabled: true,                 // bật chế độ Anchor Aim
+    Enabled: true,
 
-    // ——————————————————————————
-    //   ANCHOR LOCK CORE
-    // ——————————————————————————
-    AnchorStrength: 1.6,          // độ bám anchor vào head (1.0–1.6)
-    AnchorRecovery: 0.88,          // kéo về anchor khi lệch (auto correction)
-    AnchorMaxAngle: 360.0,           // chỉ chạy khi lệch < 6° → tự động neo lại
+    // ———————————————
+    // ANCHOR LOCK CORE – MAX
+    // ———————————————
+    AnchorStrength: 3.0,              // siêu bám – gần như dính cứng đầu
+    AnchorRecovery: 1.0,              // auto-correction mạnh nhất
+    AnchorMaxAngle: 360.0,            // chạy ở mọi góc lệch  (MAX)
 
-    // điểm anchor – mặc định nằm “đỉnh đầu + 5px”
-    AnchorOffset: { x: 0.0, y: 0.018, z: 0.0 }, 
+    AnchorOffset: { x: 0.0, y: 0.020, z: 0.0 },  // head peak + 6–7px
 
-    // ——————————————————————————
-    //   DRAG & SWIPE BEHAVIOR
-    // ——————————————————————————
+    // ———————————————
+    // DRAG & SWIPE – MAX
+    // ———————————————
     AnchorDragAssist: true,
-    DragCorrectionStrength: 0.75,   // chống lệch khi kéo dài
-    AntiOverDrag: 0.45,             // chống vượt đầu khi kéo mạnh
-    DragReturnSpeed: 0.62,          // quay lại anchor nhanh sau khi bạn buông tay
+    DragCorrectionStrength: 1.5,      // chống lệch tuyệt đối
+    AntiOverDrag: 1.2,                // không bao giờ vượt đầu
+    DragReturnSpeed: 1.4,             // nhả tay → snap về head cực nhanh
 
-    // ——————————————————————————
-    //       STABILITY ENGINE
-    // ——————————————————————————
-    KalmanFactor: 0.82,             // làm mượt vector lock
+    // ———————————————
+    // STABILITY ENGINE – MAX
+    // ———————————————
+    KalmanFactor: 0.95,               // mượt – siêu ít noise
     MicroStabilizer: true,
-    MicroStability: 0.72,           // chống rung tâm cự nhỏ
-    AntiShakeFrequency: 0.035,      // triệt rung lặp nhanh
+    MicroStability: 1.0,              // triệt rung 100%
+    AntiShakeFrequency: 0.010,        // lọc rung cực nhỏ
 
-    // ——————————————————————————
-    //     ANCHOR LEAD PREDICTOR
-    // ——————————————————————————
-    PredictiveAnchor: true,         
-    AnchorLeadStrength: 0.32,       // đón đầu hướng enemy
-    AnchorVelocityImpact: 0.20,     // ảnh hưởng vận tốc enemy vào anchor
-    SmoothLeadBlend: 0.68,          // hoà lead vào anchor mượt
+    // ———————————————
+    // ANCHOR LEAD PREDICTOR – MAX
+    // ———————————————
+    PredictiveAnchor: true,
+    AnchorLeadStrength: 1.2,          // đón đầu mạnh
+    AnchorVelocityImpact: 1.0,        // theo chuẩn vận tốc enemy
+    SmoothLeadBlend: 1.0,             // blend lead vào anchor mượt tuyệt đối
 
-    // ——————————————————————————
-    //     CLOSE–MID–LONG RANGE
-    // ——————————————————————————
+    // ———————————————
+    // RANGE ADAPTIVENESS – MAX
+    // ———————————————
     RangeAdaptive: true,
 
-    CloseRangeBoost: 1.15,          // cận chiến: anchor bám mạnh + nhanh
-    MidRangeTightness: 0.90,        // tầm trung: siết anchor vừa phải
-    LongRangePrecision: 0.75,       // xa: anchor giữ ổn, tránh giật
+    CloseRangeBoost: 2.5,             // cận chiến = auto head giữ cứng
+    MidRangeTightness: 1.8,           // tầm trung = siết chặt
+    LongRangePrecision: 1.6,          // xa = chống rung + không droppoint
 
-    // ——————————————————————————
-    //     ANCHOR LOCK RESOLVER
-    // ——————————————————————————
+    // ———————————————
+    // ANCHOR RESOLVER – MAX
+    // ———————————————
     AnchorResolver: true,
-    ResolverHistory: 4,
-    ResolverSnap: 0.55,             // kéo về điểm anchor gốc khi lệch lớn
-    ResolverJitterFilter: 0.73,     // loại jitter khi enemy tele nhỏ
+    ResolverHistory: 6,
+    ResolverSnap: 1.5,                // snap cực nhanh về anchor
+    ResolverJitterFilter: 1.4,        // lọc jitter mạnh cho teleport
 
-    // ——————————————————————————
-    //   ADVANCED: HEAD ROTATION AWARE
-    // ——————————————————————————
+    // ———————————————
+    // HEAD ROTATION AWARE – MAX
+    // ———————————————
     RotationAwareAnchor: true,
-    RotationPitchMul: 0.18,         // chỉnh anchor theo pitch đầu enemy
-    RotationYawMul: 0.14,           // chỉnh anchor khi quay trái/phải
-    RotationRollMul: 0.10,          // chỉnh anchor khi nghiêng đầu
+    RotationPitchMul: 0.45,
+    RotationYawMul: 0.40,
+    RotationRollMul: 0.30,            // hỗ trợ mọi hướng xoay đầu
 
-    // ——————————————————————————
-    //  ANTI-SLIDE / ANTI-DROP FEATURES
-    // ——————————————————————————
-    AntiDropOnDrag: 0.52,           // chống tụt tâm xuống cổ khi drag mạnh
-    AntiSlideOffHead: 0.48,         // chống trượt khỏi head khi enemy chạy zigzag
-    VerticalAnchorLock: 0.35        // giữ anchor chiều dọc cực vững
+    // ———————————————
+    // ANTI-SLIDE / ANTI-DROP – MAX
+    // ———————————————
+    AntiDropOnDrag: 1.2,              // không bao giờ tụt tâm xuống cổ
+    AntiSlideOffHead: 1.1,            // giữ head khi enemy zigzag
+    VerticalAnchorLock: 1.0           // khóa dọc tuyệt đối – đứng im trên head
 };
 
 var QuickSwipeAimSystem = {
 
-    EnableQuickSwipe: true,        // bật chế độ quick swipe (flick + drag nhanh)
+    EnableQuickSwipe: true,
 
-    // ————————————————
-    //   CORE SWIPE RESPONSE
-    // ————————————————
-    SwipeSensitivityBoost: 1.45,    // tăng nhạy khi swipe nhanh
-    SwipeAcceleration: 1.20,        // tăng tốc đầu ngón tay để bám mục tiêu
-    SwipeFriction: 0.12,            // giảm lực cản → vuốt nhẹ và nhanh hơn
+    // ————————————————————————
+    //  CORE SWIPE RESPONSE – MAX
+    // ————————————————————————
+    SwipeSensitivityBoost: 3.0,       // nhạy cực cao khi swipe
+    SwipeAcceleration: 2.5,           // tăng tốc kéo dính đầu
+    SwipeFriction: 0.02,              // gần như không ma sát → vuốt siêu nhanh
 
-    MinSwipeSpeed: 0.004,           // tốc độ tối thiểu để nhận dạng “quickswipe”
-    MaxSwipeWindow: 0.08,           // thời gian nhận swipe nhanh (0.05–0.12s)
+    MinSwipeSpeed: 0.001,             // vuốt rất nhẹ cũng nhận là quickswipe
+    MaxSwipeWindow: 0.14,             // phạm vi nhận swipe rộng (0.08 → 0.14)
 
-    // ————————————————
-    //   QUICK HEAD ASSIST
-    // ————————————————
-    QuickHeadBias: 0.55,            // tự kéo nhẹ về đầu khi swipe
-    QuickHeadRange: 360.0,            // chỉ hỗ trợ khi lệch dưới 4.2°
+    // ————————————————————————
+    //  QUICK HEAD ASSIST – MAX
+    // ————————————————————————
+    QuickHeadBias: 2.2,               // kéo head cực mạnh ngay khi swipe
+    QuickHeadRange: 360.0,            // hỗ trợ full góc, không giới hạn
 
-    QuickSwipeLift: 0.48,           // auto nâng tâm lên đầu trong lúc swipe
-    VerticalSwipeAssist: 0.40,      // hỗ trợ theo chuyển động đầu lên/xuống
+    QuickSwipeLift: 2.0,              // auto nâng tâm lên đầu cực nhanh
+    VerticalSwipeAssist: 1.8,         // bám chuyển động đầu theo trục dọc
 
-    // ————————————————
-    //       CONTROL / STABILITY
-    // ————————————————
+    // ————————————————————————
+    //      CONTROL / STABILITY – MAX
+    // ————————————————————————
     QuickMicroStabilizer: true,
-    MicroStabilityStrength: 0.70,   // giảm rung nhẹ khi swipe tốc độ cao
+    MicroStabilityStrength: 1.6,      // triệt rung khi swipe mạnh
 
-    AntiOverSwipe: 0.32,            // chống vuốt quá mạnh vượt qua đầu
-    AntiSlideDrift: 0.26,           // giảm drift (trôi tâm) khi swipe dài
+    AntiOverSwipe: 2.0,               // chống vượt head khi swipe dài
+    AntiSlideDrift: 1.8,              // khóa trôi tâm (driftfix mạnh)
 
-    // ————————————————
-    //   DYNAMIC BEHAVIOR
-    // ————————————————
+    // ————————————————————————
+    //       DYNAMIC BEHAVIOR – MAX
+    // ————————————————————————
     AdaptiveSwipeMode: true,
-    CloseRangeBoost: 1.30,          // địch gần → swipe nhanh hơn, mượt hơn
-    MidRangeBoost: 1.10,
-    LongRangePrecisionTighten: 0.75,// siết lại aim khi swipe tầm xa
 
-    // ————————————————
-    //   MOTION PREDICTOR
-    // ————————————————
-    SwipePredictStrength: 0.40,     // dự đoán hướng enemy di chuyển
-    SwipePredictLead: 0.18,         // đón đầu 0.02–0.04s khi swipe mạnh
+    CloseRangeBoost: 3.0,             // cận chiến: quickswipe auto head
+    MidRangeBoost: 2.0,               // trung tầm: tang tốc swipe mạnh
+    LongRangePrecisionTighten: 1.8,   // xa: siết aim chính xác tuyệt đối
 
-    // ————————————————
-    //    SWIPE FEEL & NATURALITY
-    // ————————————————
-    SwipeCurveBlend: 0.72,          // làm cong nhẹ hướng swipe để tự nhiên
-    EaseOutNearHead: 0.30,          // hoà tốc độ khi đến gần headbox
+    // ————————————————————————
+    //        MOTION PREDICTOR – MAX
+    // ————————————————————————
+    SwipePredictStrength: 1.5,        // dự đoán hướng enemy mạnh
+    SwipePredictLead: 1.0,            // đón đầu cực cứng khi enemy chạy
 
-    // ————————————————
-    //    LIMTER / SAFETY
-    // ————————————————
-    SwipeClampMin: 0.0020,          // tránh rung khi vuốt nhỏ
-    SwipeClampMax: 0.0210,          // tránh mất kiểm soát khi vuốt lớn
+    // ————————————————————————
+    //          FEEL & NATURALITY – MAX
+    // ————————————————————————
+    SwipeCurveBlend: 1.0,             // cong quỹ đạo swipe siêu mượt
+    EaseOutNearHead: 1.5,             // hòa tốc độ khi chạm head nhưng vẫn dính
+
+    // ————————————————————————
+    //           LIMITERS – MAX
+    // ————————————————————————
+    SwipeClampMin: 0.0010,            // xử lý swipe nhỏ không rung
+    SwipeClampMax: 0.0400,            // swipe lớn nhưng không mất kiểm soát
 };
 
 var FeatherAimSystem = {
 
-    EnableFeatherAim: true,          // kích hoạt chế độ feather aim
+    EnableFeatherAim: true,
 
-    // --- CORE FEATHER MOTION ---
-    FeatherSmoothness: 0.92,         // độ mượt "nhẹ như lông" (0.90–0.97 tuỳ tay)
-    FeatherGlide: 0.85,              // độ trượt mềm khi drag (tăng = nhẹ hơn)
+    // ——————————————————————————
+    //     CORE FEATHER MOTION – MAX
+    // ——————————————————————————
+    FeatherSmoothness: 1.0,             // độ mượt tuyệt đối
+    FeatherGlide: 1.0,                  // trượt mềm như lông → drag siêu nhẹ
 
-    // giữ lực drag nhỏ → hạn chế giật
-    FeatherResistance: 0.18,         // lực cản siêu nhẹ (đủ ổn tâm, không nặng)
+    FeatherResistance: 0.05,            // lực cản cực nhỏ → nhẹ nhất có thể
 
-    // --- FEATHER HEAD LOCK ---
-    FeatherHeadBias: 0.40,           // tự kéo nhẹ về đầu khi gần headbox
-    FeatherHeadAngleMax: 360.0,        // chỉ hoạt động khi lệch đầu < 5.5°
+    // ——————————————————————————
+    //       FEATHER HEAD LOCK – MAX
+    // ——————————————————————————
+    FeatherHeadBias: 1.5,               // auto kéo đầu rất mềm nhưng cực chuẩn
+    FeatherHeadAngleMax: 360.0,           // hoạt động full góc – không giới hạn
 
-    FeatherAutoLift: 0.25,           // auto nâng nhẹ tâm lên head khi drag
-    FeatherVerticalAssist: 0.35,     // hỗ trợ kéo lên đỉnh đầu (không quá mạnh)
+    FeatherAutoLift: 1.4,               // auto nâng tâm lên head mượt nhưng mạnh
+    FeatherVerticalAssist: 1.2,         // hỗ trợ lên/xuống nhẹ nhưng dính
 
-    // --- MICRO STABILITY ---
+    // ——————————————————————————
+    //           MICRO STABILITY – MAX
+    // ——————————————————————————
     MicroFeatherControl: true,
-    MicroFeatherStrength: 0.72,      // giảm rung li ti trong quá trình drag
+    MicroFeatherStrength: 1.8,          // triệt rung micro theo cơ chế feather
 
-    SoftOvershootGuard: 0.22,        // chống vượt head nhưng cực mềm, không hãm gắt
-    SoftReturnToHead: 0.30,          // khi lệch > 2–4px → kéo trở lại đầu một cách “nhẹ”
+    SoftOvershootGuard: 1.25,           // chống vượt head nhưng cực mềm
+    SoftReturnToHead: 1.5,              // lệch nhẹ → tự quay lại head rất mượt
 
-    // --- DRAG BEHAVIOR ---
-    FeatherDragScaler: 0.65,         // giảm lực drag mạnh → drag dễ, nhẹ
-    FeatherSpeedBlend: 0.40,         // blend tốc độ drag vào chuyển động mượt
+    // ——————————————————————————
+    //            DRAG BEHAVIOR – MAX
+    // ——————————————————————————
+    FeatherDragScaler: 1.0,             // drag nhẹ tối đa
+    FeatherSpeedBlend: 1.0,             // hòa tốc độ drag mạnh → glide mượt
 
-    // --- ADAPTIVE MOTION ---
+    // ——————————————————————————
+    //         ADAPTIVE MOTION – MAX
+    // ——————————————————————————
     AdaptiveFeatherMode: true,
-    FeatherNearRangeBoost: 0.85,     // địch càng gần → aim càng nhẹ & mượt
-    FeatherMidRangeBoost: 0.75,
-    FeatherLongRangeTightness: 0.55, // xa → aim thu hẹp, không bị lượn
 
-    // --- SENSORY FEEDBACK (cảm giác “mắt đọc trước chuyển động”) ---
-    PredictiveFeatherRead: 0.32,     // dự đoán hướng enemy di chuyển 0.02–0.04s
-    PredictiveFeatherOffset: 0.16,   // offset cực nhỏ để đón đầu (không lock mạnh)
+    FeatherNearRangeBoost: 1.5,         // địch gần → aim siêu mềm, siêu dính
+    FeatherMidRangeBoost: 1.3,
+    FeatherLongRangeTightness: 1.1,     // xa → siết chính xác tuyệt đối
 
-    // --- SAFETY ---
-    FeatherClampMin: 0.0015,         // giới hạn nhỏ nhất để không rung
-    FeatherClampMax: 0.0250,         // giới hạn lớn nhất để không lắc
+    // ——————————————————————————
+    //   FEATHER "MẮT ĐỌC TRƯỚC CHUYỂN ĐỘNG" – MAX
+    // ——————————————————————————
+    PredictiveFeatherRead: 1.2,         // đọc hướng enemy mạnh
+    PredictiveFeatherOffset: 0.9,       // đón đầu mềm nhưng auto-correct mạnh
 
-    // --- NATURAL FEEL ---
-    FeatherNaturalCurve: 0.70,       // tạo chuyển động cong nhẹ giống aim người thật
-    FeatherEaseOut: 0.35,            // chậm lại mềm khi đến gần headbox
+    // ——————————————————————————
+    //                SAFETY – MAX
+    // ——————————————————————————
+    FeatherClampMin: 0.0010,            // giữ không rung cho swipe nhỏ
+    FeatherClampMax: 0.0400,            // đảm bảo không lắc khi drag lớn
+
+    // ——————————————————————————
+    //        NATURAL FEEL – MAX
+    // ——————————————————————————
+    FeatherNaturalCurve: 1.0,           // cong aim cực tự nhiên như aim thủ
+    FeatherEaseOut: 1.2,                // giảm tốc cực mềm khi chạm headbox
 };
 
 var HeadfixSystem = {
 
-    EnableHeadFix: true,           // bật chế độ khóa đầu tuyệt đối
-    HeadLockBias: 1.35,            // kéo mạnh về headbone
-    HeadStickStrength: 1.25,       // giữ tâm luôn bám đầu – càng cao càng “dính”
+    EnableHeadFix: true,               // bật headfix tuyệt đối
 
-    MicroCorrection: true,         
-    MicroCorrectionStrength: 0.90, // auto chỉnh nhỏ khi lệch 1–3px
+    // ——————————————————————————
+    //        ABSOLUTE HEAD LOCK
+    // ——————————————————————————
+    HeadLockBias: 3.0,                 // lực kéo vào headbone cực mạnh
+    HeadStickStrength: 3.0,            // giữ tâm bám đầu tuyệt đối
 
-    AntiSlipNeck: true,            // chống tụt xuống cổ khi địch cúi / xoay
-    AntiSlipStrength: 1.10,        // càng cao càng ít bị rớt tâm
+    // ——————————————————————————
+    //        MICRO PRECISION
+    // ——————————————————————————
+    MicroCorrection: true,
+    MicroCorrectionStrength: 3.0,      // tự chỉnh 1–3px tức thì, chính xác tuyệt đối
 
-    HeadGravity: 0.85,             // “hấp lực” hút tâm về đầu (mạnh → hút nhanh)
-    MaxHeadAngle: 360.0,             // chỉ chạy khi lệch đầu dưới 4° (giữ ổn định)
+    // ——————————————————————————
+    //         ANTI-SLIP SYSTEM
+    // ——————————————————————————
+    AntiSlipNeck: true,
+    AntiSlipStrength: 3.0,             // không bao giờ rơi xuống cổ
 
-    VerticalHeadFix: 2.20,         // ưu tiên kéo trục dọc lên đầu
-    HorizontalStabilizer: 0.75,    // ổn định trục ngang để không trượt qua đầu
+    // ——————————————————————————
+    //     HEAD GRAVITY / MAGNET LOCK
+    // ——————————————————————————
+    HeadGravity: 3.0,                  // lực hút vào đầu mạnh như nam châm
+    MaxHeadAngle: 360.0,                 // hoạt động full angle – không giới hạn
 
-    NoOvershootFix: true,          
-    NoOvershootStrength: 1.0,     // chống vượt đầu khi kéo quá tay
+    // ——————————————————————————
+    //      VERTICAL & HORIZONTAL FIX
+    // ——————————————————————————
+    VerticalHeadFix: 3.0,              // kéo lên đỉnh đầu cực nhanh
+    HorizontalStabilizer: 3.0,         // cố định ngang – không trượt trái/phải
 
-    DistanceAdaptiveFix: true,     
-    CloseRangeBoost: 1.35,         // tăng headfix khi bắn gần
-    MidRangeBoost: 1.10,           
-    LongRangeBoost: 0.85,          // xa thì giảm nhẹ để tracking chính xác
+    // ——————————————————————————
+    //            NO OVERSHOOT
+    // ——————————————————————————
+    NoOvershootFix: true,
+    NoOvershootStrength: 3.0,          // chống vượt đầu mạnh nhất
 
+    // ——————————————————————————
+    //          RANGE ADAPTIVE FIX
+    // ——————————————————————————
+    DistanceAdaptiveFix: true,
+
+    CloseRangeBoost: 3.0,              // bám mạnh nhất ở tầm gần
+    MidRangeBoost: 2.5,                // vẫn siết mạnh
+    LongRangeBoost: 2.0,               // xa → ít drop nhưng vẫn cực dính
+
+    // ——————————————————————————
+    //     HEAD MOTION TRACKING
+    // ——————————————————————————
     HeadTrackingAssist: true,
-    HeadTrackingStrength: 1.15,    // theo chuyển động đầu rất sát
+    HeadTrackingStrength: 3.0,         // theo mọi chuyển động đầu real-time
 
-    SmoothTransition: 0.80,        // mượt nhưng vẫn mạnh (0.75–0.85 là đẹp)
-    HeadSnapPriority: 1.00,        // ưu tiên snap đầu trước mọi vùng khác
+    // ——————————————————————————
+    //      SMOOTHNESS & PRIORITY
+    // ——————————————————————————
+    SmoothTransition: 1.0,             // mượt tối đa nhưng vẫn lực
+    HeadSnapPriority: 3.0,             // ưu tiên head trước mọi thứ khác
 
-    // safety
-    ClampFactorMin: 0.002,         // chống rung nhỏ
-    ClampFactorMax: 0.080,         // chống giật mạnh khi lock nhanh  
+    // ——————————————————————————
+    //               SAFETY
+    // ——————————————————————————
+    ClampFactorMin: 0.0005,            // chống rung micro
+    ClampFactorMax: 0.2000,            // không bị giật khi snap cực mạnh
 };
 
 var DefaultNeckAimAnchor = {
