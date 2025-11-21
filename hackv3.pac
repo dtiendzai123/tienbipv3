@@ -1,3 +1,108 @@
+var AimLockSystem = {
+
+    EnableAimLock: true,            // bật chế độ aimlock
+    AimLockFOV: 3.0,                // FOV khóa mục tiêu (càng nhỏ càng chính xác)
+    AimPriority: "HEAD",            // HEAD | NECK | CHEST
+
+    // --- Strength ---
+    LockStrength: 2.25,             // lực kéo khóa trực tiếp – càng cao càng hút mạnh
+    HardLockPower: 2.6,             // hard-lock cực mạnh, sử dụng khi tâm gần đầu
+    DragLockForce: 1.85,            // lực kéo mượt nhưng vẫn mạnh
+
+    // --- Snap ---
+    SnapEnable: true,
+    SnapSpeed: 1.90,                // tốc độ snap vào đầu
+    SnapRange: 360.0,                 // tự snap khi lệch ≤ 6°
+
+    // --- Micro Correct ---
+    MicroCorrect: true,
+    MicroCorrectStrength: 1.35,     // sửa sai nhỏ 1–3px cực nhanh
+
+    // --- Smoothing ---
+    SmoothEnable: true,
+    SmoothFactor: 0.72,             // giảm rung khi tracking (0.65–0.80)
+    VerticalSmoothBoost: 1.35,      // ưu tiên trục dọc để nhảy lên đầu nhanh
+
+    // --- Distance adaptive ---
+    DistanceAdaptive: true,
+    CloseRangeBoost: 1.40,
+    MidRangeBoost: 1.15,
+    LongRangeNerf: 0.90,
+
+    // --- Anti Overshoot / Anti Shake ---
+    AntiOvershoot: true,
+    AntiOvershootFactor: 1.25,       // chống vượt qua đầu khi kéo nhanh
+
+    AntiShake: true,
+    AntiShakeMin: 0.0017,
+    AntiShakeMax: 0.075,
+
+    // --- Head Tracking Integration ---
+    UseHeadFixSystem: true,          // auto hợp nhất với HeadfixSystem
+    HeadTrackBias: 1.20,             // ưu tiên head hướng theo xương đầu
+
+    // --- Auto Fire ---
+    AutoFire: true,
+    AutoFireRange: 3.0,              // chỉ bắn khi rất gần mục tiêu
+    AutoFireDelay: 18,               // delay nhỏ để tránh spam
+
+    // --- Logic xử lý chính ---
+    applyAimLock: function(target, cameraDir, distance) {
+
+        if (!this.EnableAimLock || !target) return cameraDir;
+
+        let aimVector = target.sub(cameraDir);
+
+        // ⭐ Ưu tiên headbone
+        if (this.AimPriority === "HEAD" && this.UseHeadFixSystem && target.head) {
+            aimVector = target.head.sub(cameraDir).mul(this.HeadTrackBias);
+        }
+
+        // ⭐ Distance Adaptive
+        if (this.DistanceAdaptive) {
+            if (distance < 15) aimVector = aimVector.mul(this.CloseRangeBoost);
+            else if (distance < 40) aimVector = aimVector.mul(this.MidRangeBoost);
+            else aimVector = aimVector.mul(this.LongRangeNerf);
+        }
+
+        // ⭐ Micro Correct
+        if (this.MicroCorrect) {
+            aimVector = aimVector.mul(this.MicroCorrectStrength);
+        }
+
+        // ⭐ Snap Aim
+        if (this.SnapEnable) {
+            const angle = aimVector.angle();
+            if (angle <= this.SnapRange) {
+                aimVector = aimVector.mul(this.SnapSpeed);
+            }
+        }
+
+        // ⭐ Hard Lock khi rất gần đầu
+        if (aimVector.length() < 0.022) {
+            aimVector = aimVector.mul(this.HardLockPower);
+        }
+
+        // ⭐ Smooth Aim
+        if (this.SmoothEnable) {
+            aimVector.x *= this.SmoothFactor;
+            aimVector.y *= this.SmoothFactor * this.VerticalSmoothBoost;
+        }
+
+        // ⭐ Anti Overshoot
+        if (this.AntiOvershoot) {
+            aimVector.x = Math.min(aimVector.x, this.AntiOvershootFactor);
+            aimVector.y = Math.min(aimVector.y, this.AntiOvershootFactor);
+        }
+
+        // ⭐ Anti Shake
+        aimVector.x = Math.max(Math.min(aimVector.x, this.AntiShakeMax), -this.AntiShakeMax);
+        aimVector.y = Math.max(Math.min(aimVector.y, this.AntiShakeMax), -this.AntiShakeMax);
+
+        return aimVector;
+    }
+};
+
 var SteadyHoldSystem = {
     Enabled: true,
     SteadyHold: true,
