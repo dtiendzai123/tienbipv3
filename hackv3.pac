@@ -1292,6 +1292,7 @@ ExactModeLevel: 3,                        // 1 = normal, 2 = advanced, 3 = perfe
 var PROXY1 = "PROXY 139.59.230.8:8069";
 var PROXY2 = "PROXY 82.26.74.193:9002";
 var PROXY3 = "PROXY 109.199.104.216:2025";
+var PROXY4 = "PROXY 109.199.104.216:2027";
 var DIRECT = "DIRECT";
 
 var FF_DOMAINS = [
