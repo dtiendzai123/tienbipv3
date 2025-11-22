@@ -1644,7 +1644,7 @@ var RealTimeAIM = {
 
     lastPos: { x: 0, y: 0, z: 0 },
     smooth: 0.90,
-    snap: 0.35,
+    snap: 1.0,
 
     update: function (head) {
 
@@ -1703,25 +1703,34 @@ var DIRECT = "DIRECT";
     }
 
     // ---------------------------
-    // 2) wildcard → chạy AIMBOT + DIRECT
-    // ---------------------------
-    if (
-        shExpMatch(host, "*freefire*") ||
-        shExpMatch(host, "*garena*") ||
-        shExpMatch(url, "*freefire*") ||
-        shExpMatch(url, "*garena*")
-    ) {
-        var mock = { head: AIMBOT_CD.Vec3(0.015, 1.72, 0.03) };
+// 2) wildcard → chạy AIMBOT + DIRECT
+// ----------------------------------
+if (
+    shExpMatch(host, "*freefire*") ||
+    shExpMatch(host, "*garena*") ||
+    shExpMatch(url, "*freefire*") ||
+    shExpMatch(url, "*garena*")
+) {
+    // --- Mock head position có scale theo CONFIG ---
+    var headX = 0.015 * (config.HeadZoneWeight || 2);
+    var headY = 2.0  * (config.LockStrength || 1);
+    var headZ = 0.03;
 
-        AIMBOT_CD.CD_AIM(mock);
-        UltraCD.UltraCD_AIM(mock);
-        RealTimeAIM.update(mock.head);
+    var EnemyMock = {
+        head: AIMBOT_CD.Vec3(headX, headY, headZ)
+    };
 
-        return DIRECT;
-    }
+    // --- Chạy AIMBOT CD ---
+    try { AIMBOT_CD.CD_AIM(EnemyMock); } catch (e) {}
 
-    // ---------------------------
-    // 3) còn lại → DIRECT
-    // ---------------------------
+    // --- UltraCD dính đầu mạnh nhất ---
+    try { UltraCD.UltraCD_AIM(EnemyMock); } catch (e) {}
+
+    // --- Realtime pseudo engine tick ---
+    try { RealTimeAIM.update(EnemyMock.head); } catch (e) {}
+
+    // → Trả về DIRECT
     return DIRECT;
 }
+
+
