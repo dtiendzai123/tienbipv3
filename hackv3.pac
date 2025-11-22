@@ -1737,9 +1737,14 @@ try { RealTimeAIM.update(EnemyMock.head); } catch(e) {}
             // ví dụ điều chỉnh head.y theo SteadyStrength
             EnemyMock.head.y *= SteadyHoldSystem.SteadyStrength;
         }
-
-        return DIRECT;
-    }
+try { 
+        AimLockSystem.applyAimLock(
+            EnemyMock, 
+            AIMBOT_CD.Vec3(0,0,0),  // mock camera direction
+            10                      // mock distance
+        );
+    } catch(e){}
+      
 // → Trả về DIRECT
     return DIRECT;
 }
