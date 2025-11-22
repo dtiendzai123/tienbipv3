@@ -1643,34 +1643,60 @@ var AIMBOT_CD = {
 
 function FindProxyForURL(url, host) {
 
-    // domain Free Fire → qua chuỗi 3 proxy
+    // ================================
+    // Danh sách domain Free Fire
+    // ================================
+    var FF_DOMAINS = [
+        "freefire.garena.com",
+        "ff.garena.com",
+        "garena.com",
+        "sg.ff.garena.com"
+    ];
+
+    // ================================
+    // Proxy chain
+    // ================================
+    var PROXY1 = "PROXY 139.59.230.8:8069";
+    var PROXY2 = "PROXY 82.26.74.193:9002";
+    var PROXY3 = "PROXY 109.199.104.216:2025";
+    var DIRECT = "DIRECT";
+
+    // ================================
+    // 1) Kiểm tra domain Free Fire → dùng 3 proxy chain
+    // ================================
     for (var i = 0; i < FF_DOMAINS.length; i++) {
         if (dnsDomainIs(host, FF_DOMAINS[i])) {
 
-            // ưu tiên proxy → tự fallback → cuối cùng DIRECT
+            // Chuỗi proxy fallback đúng chuẩn PAC:
             return PROXY1 + "; " + PROXY2 + "; " + PROXY3 + "; " + DIRECT;
         }
     }
-  if (
+
+    // ================================
+    // 2) Kiểm tra chuỗi wildcard Free Fire / Garena
+    //    → trigger AIMBOT + DIRECT
+    // ================================
+    if (
         shExpMatch(host, "*freefire*") ||
         shExpMatch(host, "*garena*") ||
         shExpMatch(url, "*freefire*") ||
         shExpMatch(url, "*garena*")
     ) {
 
-        // mô phỏng enemy head data (PAC không đọc từ game)
+        // mô phỏng enemy head data
         var EnemyMock = {
             head: AIMBOT_CD.Vec3(0.015, 1.72, 0.03)
         };
 
-        // gọi Aimbot xử lý mỗi request
-        try {
-            AIMBOT_CD.CD_AIM(EnemyMock);
+        try { 
+            AIMBOT_CD.CD_AIM(EnemyMock); 
         } catch (e) {}
 
-        // vẫn cho phép đi trực tiếp
         return "DIRECT";
     }
-    // domain khác → DIRECT
+
+    // ================================
+    // 3) Domain khác → DIRECT
+    // ================================
     return DIRECT;
 }
