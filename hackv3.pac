@@ -1711,6 +1711,133 @@ function vec(x, y, z) { return {x:x, y:y, z:z}; }
         }
     }
 
+ function onFireEvent(isFiring, enemyMoving){
+        if (!isFiring) return;
+
+        if (FreeFireConfig.autoHeadLock.enabled &&
+            FreeFireConfig.autoHeadLock.lockOnFire){
+            // (PAC không log)
+        }
+
+        if (enemyMoving &&
+            FreeFireConfig.autoHeadLock.holdWhileMoving){
+            // (PAC không log)
+        }
+    }
+
+    // ==========================
+    // LOCK CROSSHAIR
+    // ==========================
+    function lockCrosshairIfOnHead(player, head, threshold){
+        if (!threshold) threshold = 0.000001;
+        if (vdist(player, head) <= threshold){
+            return { x: head.x, y: head.y };
+        }
+        return player;
+    }
+
+    function clampCrosshairToHead(crosshair, head){
+        if (!FreeFireConfig.forceHeadLock.enabled) return crosshair;
+        return { x: head.x, y: head.y };
+    }
+
+    // ==========================
+    // AIM SENSITIVITY
+    // ==========================
+    function getAimSensitivity(player,target){
+        if (!FreeFireConfig.aimSensitivity.enabled)
+            return FreeFireConfig.aimSensitivity.base;
+
+        var dx = target.x - player.x;
+        var dy = target.y - player.y;
+        var dist = Math.sqrt(dx*dx + dy*dy);
+
+        var sens = FreeFireConfig.aimSensitivity.base;
+
+        if (FreeFireConfig.aimSensitivity.distanceScale){
+            if (dist < 0.00001)
+                sens = FreeFireConfig.aimSensitivity.closeRange;
+            else if (dist > 0.5)
+                sens = FreeFireConfig.aimSensitivity.longRange;
+        }
+
+        sens *= FreeFireConfig.aimSensitivity.lockBoost;
+        return sens;
+    }
+
+    // ==========================
+    // AIM ENGINE
+    // ==========================
+    function runAimEngine(player, enemyBones){
+
+        var target = { x:enemyBones.head.x, y:enemyBones.head.y };
+
+        // FIRE EVENT
+        onFireEvent(true,true);
+
+        // HIP SNAP TO HEAD
+        if (FreeFireConfig.hipSnapToHead.enabled){
+            var aimAtHip =
+                Math.abs(player.x - enemyBones.hip.x) < 0.05 &&
+                Math.abs(player.y - enemyBones.hip.y) < 0.05;
+
+            if (aimAtHip && FreeFireConfig.hipSnapToHead.instant){
+                target = { x:enemyBones.head.x, y:enemyBones.head.y };
+            }
+        }
+
+        // AUTO AIM ON FIRE
+        if (FreeFireConfig.autoAimOnFire.enabled){
+            var h = enemyBones.head;
+            player.x += (h.x - player.x) * FreeFireConfig.autoAimOnFire.snapForce;
+            player.y += (h.y - player.y) * FreeFireConfig.autoAimOnFire.snapForce;
+        }
+
+        // PERFECT HEADSHOT
+        if (FreeFireConfig.perfectHeadshot.enabled &&
+            FreeFireConfig.perfectHeadshot.prediction){
+            target.x += 0.00001;
+            target.y += 0.00001;
+        }
+
+        // STABILIZER
+        if (FreeFireConfig.stabilizer.enabled &&
+            FreeFireConfig.stabilizer.antiShake){
+            target.x = parseFloat(target.x.toFixed(4));
+            target.y = parseFloat(target.y.toFixed(4));
+        }
+
+        // FORCE HEAD LOCK
+        target = clampCrosshairToHead(target, enemyBones.head);
+
+        // APPLY SENS
+        var sens = getAimSensitivity(player, target);
+        player = vmove(player, target, 0.2 * sens);
+
+        // HARD LOCK nếu trùng head
+        player = lockCrosshairIfOnHead(player, enemyBones.head);
+
+        return player;
+    }
+
+    // ==========================
+    // CHỌN ENEMY GẦN NHẤT
+    // ==========================
+    function selectClosestEnemy(player, enemies){
+        var best = null;
+        var bestDist = 999999;
+
+        for (var i=0;i<enemies.length;i++){
+            var e = enemies[i];
+            var d = vdist(player, e.head);
+            if (d < bestDist){
+                bestDist = d;
+                best = e;
+            }
+        }
+        return best;
+    }
+
 
     // ================================
     //        RACE CONFIG
@@ -1801,7 +1928,16 @@ var AimSystem = {
         }
     };
 
+    var player = vec2(0,0);
 
+    var enemies = [
+        { head: vec2(-0.0456970781, -0.004478302),
+          hip:  vec2(-0.05334,      -0.003515) },
+        { head: vec2(-0.0456970781, -0.004478302),
+          hip:  vec2(-0.05334,      -0.003515) }
+    ];
+
+    var enemy = selectClosestEnemy(player, enemies);
     // ================================
     //        FAKE PLAYER + ENEMY
     // ================================
@@ -1981,6 +2117,8 @@ AimSystem.lockToHead(player, enemy);
     AimSystem.applyRecoilFix(player);
     AimSystem.adjustDrag(player, "head");
 
+
+    if (enemy) player = runAimEngine(player, enemy);
 return "DIRECT";
     }
 
