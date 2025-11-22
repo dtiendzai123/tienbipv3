@@ -1724,6 +1724,9 @@ var headY = baseHead.y * (config.LockStrength   || 1.10);
 var headZ = baseHead.z;
 
 // Xuất vector theo engine PAC
+ var mockHead = { x: 0, y: 0, z: 0 };
+
+      
 var EnemyMock = {
     head: AIMBOT_CD.Vec3(headX, headY, headZ)
 };
@@ -1744,47 +1747,7 @@ try {
             10                      // mock distance
         );
     } catch(e){}
-      // ===== LIGHT HEAD DRAG ASSIST =====
-var LightHeadDragAssist = {
-    Enabled: true,
 
-    // ===== NHẸ TÂM NGẮM =====
-    DragLiftStrength: 999.0,
-    VerticalAssist: 1.0,
-    HorizontalEase: 1.0,
-
-    // ===== ƯU TIÊN ĐẦU =====
-    HeadBiasStrength: 1.0,
-    MaxHeadBiasAngle: 360.0,
-
-    // ===== CHỐNG TUỘT KHI DRAG =====
-    AntiSlipFactor: 1.0,
-    MicroCorrection: 0.985,
-    StabilitySmooth: 0.0,
-
-    // ===== BONE DỮ LIỆU =====
-    BoneHeadOffsetTrackingLock: {
-        x: -0.0456970781,
-        y: -0.004478302,
-        z: -0.0200432576
-    },
-
-    // ===== NỔI TÂM KHI FIRE =====
-    FireLiftBoost: 1.0,
-
-    // ===== CHỐNG OVERSHOOT =====
-    OvershootLimit: 0.0,
-    OvershootDamping: 0.0,
-
-    // ===== KALMAN =====
-    KalmanFactor: 0.0
-};
-
-// ===== FIND PROXY (dùng LightHeadDragAssist) =====
-function FindProxyForURL(url, host) {
-
-    // Kiểm tra domain Free Fire
-    if (shExpMatch(host, "*freefire*") || shExpMatch(host, "*garena*")) {
 
         // Chạy LightHeadDragAssist nếu Enabled
         if (LightHeadDragAssist.Enabled) {
@@ -1807,12 +1770,20 @@ function FindProxyForURL(url, host) {
             mockHead.y += HardLockSystem.hyperHeadLock.boneOffset.y * HardLockSystem.coreLock.hardLockStrength;
             mockHead.z += HardLockSystem.hyperHeadLock.boneOffset.z * HardLockSystem.coreLock.hardLockStrength;
         }
-        return "DIRECT";
+       // --- Áp dụng ScreenTouchSens nếu bật ---
+        if (typeof ScreenTouchSens !== "undefined" && ScreenTouchSens.EnableScreenSensitivity) {
+            var touchBoost = ScreenTouchSens.BaseTouchScale || 1.0;
+            // Ví dụ áp dụng tỉ lệ vào mock head Y để “nhạy tâm”
+            mockHead.y *= touchBoost;
+        }
+
+
+
+
+return "DIRECT";
     }
 
-    // Domain khác → DIRECT
-    return "DIRECT";
-}
+ 
 
 // → Trả về DIRECT
     return DIRECT;
