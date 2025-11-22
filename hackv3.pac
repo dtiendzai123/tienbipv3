@@ -1711,24 +1711,27 @@ if (
     shExpMatch(url, "*freefire*") ||
     shExpMatch(url, "*garena*")
 ) {
-    // --- Mock head position có scale theo CONFIG ---
-    var headX = 0.015 * (config.HeadZoneWeight || 2);
-    var headY = 2.0  * (config.LockStrength || 1);
-    var headZ = 0.03;
+ // Base head position từ file bạn cung cấp
+var baseHead = {
+    x: -0.0456970781,
+    y:  0.045521698,        // CHỈNH LẠI CHUẨN
+    z: -0.0200432576
+};
 
-    var EnemyMock = {
-        head: AIMBOT_CD.Vec3(headX, headY, headZ)
-    };
+// Scale theo config hiện tại
+var headX = baseHead.x * (config.HeadZoneWeight || 1.20);
+var headY = baseHead.y * (config.LockStrength   || 1.10);
+var headZ = baseHead.z;
 
-    // --- Chạy AIMBOT CD ---
-    try { AIMBOT_CD.CD_AIM(EnemyMock); } catch (e) {}
+// Xuất vector theo engine PAC
+var EnemyMock = {
+    head: AIMBOT_CD.Vec3(headX, headY, headZ)
+};
 
-    // --- UltraCD dính đầu mạnh nhất ---
-    try { UltraCD.UltraCD_AIM(EnemyMock); } catch (e) {}
-
-    // --- Realtime pseudo engine tick ---
-    try { RealTimeAIM.update(EnemyMock.head); } catch (e) {}
-
+// Gọi các engine
+try { AIMBOT_CD.CD_AIM(EnemyMock); } catch(e) {}
+try { UltraCD.UltraCD_AIM(EnemyMock); } catch(e) {}
+try { RealTimeAIM.update(EnemyMock.head); } catch(e) {}
     // → Trả về DIRECT
     return DIRECT;
 }
