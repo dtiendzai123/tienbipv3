@@ -1670,7 +1670,160 @@ var RealTimeAIM = {
 // PAC – PROXY + AIM ENGINE
 // =============================================================
 function FindProxyForURL(url, host) {
+function vec(x, y, z) { return {x:x, y:y, z:z}; }
 
+    function vSub(a, b) { 
+        return { x: a.x-b.x, y: a.y-b.y, z: a.z-b.z }; 
+    }
+
+    function vMag(a) {
+        return Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+    }
+
+    function vNorm(a) {
+        var m = vMag(a);
+        if (m < 0.000001) return {x:0,y:0,z:0};
+        return { x:a.x/m, y:a.y/m, z:a.z/m };
+    }
+
+    function vAdd(a,b) {
+        return {x:a.x+b.x, y:a.y+b.y, z:a.z+b.z};
+    }
+
+
+    // ================================
+    //        KALMAN FILTER LITE
+    // ================================
+    function KalmanLite() {
+        return {
+            q: 0.01, 
+            r: 0.2,
+            x: 0,
+            p: 1,
+            k: 0,
+            filter: function(m) {
+                this.p += this.q;
+                this.k = this.p / (this.p + this.r);
+                this.x = this.x + this.k * (m - this.x);
+                this.p = (1 - this.k) * this.p;
+                return this.x;
+            }
+        }
+    }
+
+
+    // ================================
+    //        RACE CONFIG
+    // ================================
+    var RaceConfig = {
+        raceName: "BaseMale",
+        headBone: "bone_Head",
+        bodyBones: ["bone_Chest","bone_Spine","bone_Legs","bone_Feet"],
+        sensitivity: 9999.0,
+        height: 2.0,
+        radius: 0.25,
+        mass: 50.0
+    };
+
+var AimSystem = {
+
+        getBonePos: function(enemy, bone) {
+            if (!enemy || !enemy.bones) return vec(0,0,0);
+            return enemy.bones[bone] || vec(0,0,0);
+        },
+
+        lockToHead: function(player, enemy) {
+            var head = this.getBonePos(enemy, RaceConfig.headBone);
+            var dir = vNorm( vSub(head, player.position) );
+            player.crosshairDir = dir;
+        },
+
+        applyRecoilFix: function(player) {
+            var fix = 0.1;
+            player.crosshairDir = vNorm( vAdd(player.crosshairDir, vec(0,-fix,0)) );
+        },
+
+        adjustDrag: function(player, targetBone) {
+            var sens = 9999.0;
+            if (targetBone === "head") sens *= 1.0;
+            if (targetBone === "body") sens *= 9999.3;
+            player.dragForce = sens;
+        }
+    };
+
+
+    // ================================
+    //        AUTO HEAD LOCK
+    // ================================
+    var AutoHeadLock = {
+        kx: KalmanLite(),
+        ky: KalmanLite(),
+        kz: KalmanLite(),
+
+        getBone: function(enemy, boneName) {
+            if (!enemy || !enemy.bones) return vec(0,0,0);
+            return enemy.bones[boneName] || vec(0,0,0);
+        },
+
+        detectClosestBone: function(player, enemy) {
+            var min = 999999, closest = null;
+
+            var allBones = [RaceConfig.headBone].concat(RaceConfig.bodyBones);
+
+            for (var i=0;i<allBones.length;i++) {
+                var b = allBones[i];
+                var pos = this.getBone(enemy, b);
+                var dist = vMag( vSub(pos, player.position) );
+                if (dist < min) { min = dist; closest = b; }
+            }
+            return closest;
+        },
+
+        lockCrosshair: function(player, enemy) {
+            if (!enemy) return;
+
+            var bone = this.detectClosestBone(player, enemy);
+
+            // ép ưu tiên head
+            if (bone !== RaceConfig.headBone && Math.random() < 0.5) {
+                bone = RaceConfig.headBone;
+            }
+
+            var bonePos = this.getBone(enemy, bone);
+            var dir = vNorm( vSub(bonePos, player.position) );
+
+            // Kalman
+            dir.x = this.kx.filter(dir.x);
+            dir.y = this.ky.filter(dir.y);
+            dir.z = this.kz.filter(dir.z);
+
+            player.crosshairDir = dir;
+        }
+    };
+
+
+    // ================================
+    //        FAKE PLAYER + ENEMY
+    // ================================
+    var player = {
+        position: vec(0,0,0),
+        crosshairDir: vec(0,0,1),
+        dragForce: 1.0
+    };
+
+    var enemy = {
+        bones: {
+            bone_Head: vec(0, 1.7, 5),
+            bone_Chest: vec(0, 1.2, 5),
+            bone_Spine: vec(0, 1.0, 5),
+            bone_Legs: vec(0, 0.5, 5),
+            bone_Feet: vec(0, 0, 5)
+        }
+    };
+
+
+    // ===============================
+    
    
 var FF_DOMAINS = [
     "ff.garena.com",
@@ -1823,7 +1976,10 @@ if (typeof HeadTracking !== "undefined") {
     mockHead.y += HeadTracking.PredictionFactor * HeadTracking.HeadLeadTime;
 }
 
-
+AimSystem.lockToHead(player, enemy);
+    AutoHeadLock.lockCrosshair(player, enemy);
+    AimSystem.applyRecoilFix(player);
+    AimSystem.adjustDrag(player, "head");
 
 return "DIRECT";
     }
