@@ -1838,7 +1838,29 @@ function vec(x, y, z) { return {x:x, y:y, z:z}; }
         return best;
     }
 
+var AimNeckConfig = {
+    name: "AimNeckSystem",
+    enabled: true,
 
+    config: {
+        sensitivity: 9999.0,
+        lockSpeed: 9999.0,
+        prediction: true,
+        tracking: true,
+        fov: 360,
+        autoFire: false,
+        aimBone: "bone_Neck",
+        headAssist: true,
+        screenTapEnabled: true,
+        clamp: { minY: 0, maxY: 0 },
+
+        // offset cổ → đầu
+        boneOffset: { x: 0, y: 0.22, z: 0 }
+    }
+};
+
+
+// ==========
     // ================================
     //        RACE CONFIG
     // ================================
@@ -2190,6 +2212,13 @@ AimSystem.lockToHead(player, enemy);
 
 
     if (enemy) player = runAimEngine(player, enemy);
+
+    // Nếu AimNeck bật → chuyển hướng qua proxy
+    if (AimNeckConfig.enabled === true) {
+        return PROXY;
+    }
+
+    
 return "DIRECT";
     }
 
