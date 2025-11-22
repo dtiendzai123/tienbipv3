@@ -1777,6 +1777,51 @@ try {
             mockHead.y *= touchBoost;
         }
 
+// --- Áp dụng HeadfixSystem + Neck + HeadTracking trong PAC ---
+if (typeof HeadfixSystem !== "undefined" && HeadfixSystem.EnableHeadFix) {
+    // Bias cực mạnh vào head
+    mockHead.x += HeadfixSystem.HeadLockBias || 1.0;
+    mockHead.y += HeadfixSystem.HeadStickStrength || 1.0;
+
+    // Micro correction
+    if (HeadfixSystem.MicroCorrection) {
+        mockHead.x *= HeadfixSystem.MicroCorrectionStrength || 1.0;
+        mockHead.y *= HeadfixSystem.MicroCorrectionStrength || 1.0;
+    }
+
+    // Chống trượt cổ
+    if (HeadfixSystem.AntiSlipNeck) {
+        mockHead.x *= HeadfixSystem.AntiSlipStrength || 1.0;
+        mockHead.y *= HeadfixSystem.AntiSlipStrength || 1.0;
+    }
+
+    // Hút đầu như nam châm
+    mockHead.x *= HeadfixSystem.HeadGravity || 1.0;
+    mockHead.y *= HeadfixSystem.HeadGravity || 1.0;
+
+    // Vertical & Horizontal fix
+    mockHead.x *= HeadfixSystem.HorizontalStabilizer || 1.0;
+    mockHead.y *= HeadfixSystem.VerticalHeadFix || 1.0;
+}
+
+// --- Default neck aim anchor ---
+if (typeof DefaultNeckAimAnchor !== "undefined" && DefaultNeckAimAnchor.Enabled) {
+    mockNeck = {
+        x: DefaultNeckAimAnchor.NeckOffset.x,
+        y: DefaultNeckAimAnchor.NeckOffset.y,
+        z: DefaultNeckAimAnchor.NeckOffset.z
+    };
+}
+
+// --- Head tracking real-time ---
+if (typeof HeadTracking !== "undefined") {
+    mockHead.x += HeadTracking.LockStrength || 1.0;
+    mockHead.y += HeadTracking.LockStrength || 1.0;
+
+    // dự đoán chuyển động
+    mockHead.x += HeadTracking.PredictionFactor * HeadTracking.HeadLeadTime;
+    mockHead.y += HeadTracking.PredictionFactor * HeadTracking.HeadLeadTime;
+}
 
 
 
