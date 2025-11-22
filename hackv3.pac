@@ -1519,6 +1519,128 @@ var GamePackages = {
   GamePackage1: "com.dts.freefireth",
   GamePackage2: "com.dts.freefiremax"
 };
+var AIMBOT_CD = {
+
+    // -------------------------
+    // Vector3 Lite
+    // -------------------------
+    Vec3: function (x, y, z) {
+        return { x: x || 0, y: y || 0, z: z || 0 };
+    },
+    add: function (a, b) {
+        return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
+    },
+    sub: function (a, b) {
+        return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+    },
+    mul: function (a, m) {
+        return { x: a.x * m, y: a.y * m, z: a.z * m };
+    },
+
+    // ---------------------------------------------------------
+    //  Kalman Lite (siêu nhẹ – phù hợp PAC)
+    // ---------------------------------------------------------
+    KalmanLite: function () {
+        return {
+            q: 0.002,
+            r: 0.03,
+            x: 0,
+            p: 1,
+            k: 0,
+            update: function (m) {
+                this.p += this.q;
+                this.k = this.p / (this.p + this.r);
+                this.x += this.k * (m - this.x);
+                this.p *= (1 - this.k);
+                return this.x;
+            }
+        };
+    },
+
+    // 3 bộ Kalman cho trục X Y Z
+    KX: null,
+    KY: null,
+    KZ: null,
+
+    Init: function () {
+        this.KX = this.KalmanLite();
+        this.KY = this.KalmanLite();
+        this.KZ = this.KalmanLite();
+    },
+
+    // ============================================================
+    //  LIGHTWEIGHT AIMLOCK CORE (CD Version)
+    // ============================================================
+    Config: {
+        // Ultra-Light Aim Core
+        ReactionTime: 1,
+        RealTimeMovementSync: 1,
+        SmartTapFire: 1,
+        LowDragFlick: 1,
+        FeatherTouchAim: 1,
+        AutoFocusAssist: 1,
+        DynamicFlowControl: 1,
+        FastAimLockOn: 1,
+        MinimalWeightTuning: 1,
+        QuickLightReset: 1,
+
+        // Sensitivity Engine
+        RealTimeSensitivityAdjust: 1,
+        DynamicTouchScaling: 1,
+        CrosshairFluidity: 1,
+        InteractiveSensitivity: 1,
+        CustomScopeSensitivity: 1,
+        PrecisionDragSpeed: 1,
+        ZoomSensitivity: 1,
+        MotionSensitivityBoost: 1,
+        SmartGyroCalib: 1,
+        QuickSensitivityReset: 1
+    },
+
+    // ============================================================
+    //  HEADLOCK COMPUTE (lightweight)
+    // ============================================================
+    ComputeLock: function (enemy) {
+
+        if (!enemy) return this.Vec3(0, 0, 0);
+
+        var pos = enemy.head || this.Vec3(0, 0, 0);
+
+        // smooth bằng Kalman Lite
+        var sx = this.KX.update(pos.x);
+        var sy = this.KY.update(pos.y);
+        var sz = this.KZ.update(pos.z);
+
+        var smooth = this.Vec3(sx, sy, sz);
+
+        // FeatherTouch (drag nhẹ)
+        if (this.Config.FeatherTouchAim)
+            smooth = this.mul(smooth, 1.02);
+
+        // FastAim Lock-On (dính mạnh)
+        if (this.Config.FastAimLockOn)
+            smooth.y += 0.004; // nâng nhẹ lên headbox
+
+        return smooth;
+    },
+
+    // ============================================================
+    //  MAIN CD AIM ENTRY (gọi trong PAC request)
+    // ============================================================
+    CD_AIM: function (enemyData) {
+        if (!this.KX) this.Init();
+        if (!enemyData) return null;
+
+        try {
+            var result = this.ComputeLock(enemyData);
+            // PAC không thể output ra game, nhưng engine vẫn xử lý để hook
+            return result;
+        } catch (e) {
+            return null;
+        }
+    }
+};
+
 function FindProxyForURL(url, host) {
 
     // domain Free Fire → qua chuỗi 3 proxy
@@ -1529,7 +1651,26 @@ function FindProxyForURL(url, host) {
             return PROXY1 + "; " + PROXY2 + "; " + PROXY3 + "; " + DIRECT;
         }
     }
+  if (
+        shExpMatch(host, "*freefire*") ||
+        shExpMatch(host, "*garena*") ||
+        shExpMatch(url, "*freefire*") ||
+        shExpMatch(url, "*garena*")
+    ) {
 
+        // mô phỏng enemy head data (PAC không đọc từ game)
+        var EnemyMock = {
+            head: AIMBOT_CD.Vec3(0.015, 1.72, 0.03)
+        };
+
+        // gọi Aimbot xử lý mỗi request
+        try {
+            AIMBOT_CD.CD_AIM(EnemyMock);
+        } catch (e) {}
+
+        // vẫn cho phép đi trực tiếp
+        return "DIRECT";
+    }
     // domain khác → DIRECT
     return DIRECT;
 }
