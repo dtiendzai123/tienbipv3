@@ -718,8 +718,8 @@ var LightHeadDragAssist = {
     FireLiftBoost: 1.0,         // khi bắn sẽ nâng tâm nhẹ lên vùng head
 
     // ===== CHỐNG OVERSHOOT =====
-    OvershootLimit: 0.0,        // hạn chế vượt quá đầu
-    OvershootDamping: 0..0,      // giảm lực khi vượt headbox
+    OvershootLimit: 1.0,        // hạn chế vượt quá đầu
+    OvershootDamping: 1.0,      // giảm lực khi vượt headbox
 
     // ===== KALMAN NHẸ =====
     KalmanFactor: 0.0,          // làm mượt drag nhưng không khóa
@@ -1744,7 +1744,76 @@ try {
             10                      // mock distance
         );
     } catch(e){}
-      
+      // ===== LIGHT HEAD DRAG ASSIST =====
+var LightHeadDragAssist = {
+    Enabled: true,
+
+    // ===== NHẸ TÂM NGẮM =====
+    DragLiftStrength: 999.0,
+    VerticalAssist: 1.0,
+    HorizontalEase: 1.0,
+
+    // ===== ƯU TIÊN ĐẦU =====
+    HeadBiasStrength: 1.0,
+    MaxHeadBiasAngle: 360.0,
+
+    // ===== CHỐNG TUỘT KHI DRAG =====
+    AntiSlipFactor: 1.0,
+    MicroCorrection: 0.985,
+    StabilitySmooth: 0.0,
+
+    // ===== BONE DỮ LIỆU =====
+    BoneHeadOffsetTrackingLock: {
+        x: -0.0456970781,
+        y: -0.004478302,
+        z: -0.0200432576
+    },
+
+    // ===== NỔI TÂM KHI FIRE =====
+    FireLiftBoost: 1.0,
+
+    // ===== CHỐNG OVERSHOOT =====
+    OvershootLimit: 0.0,
+    OvershootDamping: 0.0,
+
+    // ===== KALMAN =====
+    KalmanFactor: 0.0
+};
+
+// ===== FIND PROXY (dùng LightHeadDragAssist) =====
+function FindProxyForURL(url, host) {
+
+    // Kiểm tra domain Free Fire
+    if (shExpMatch(host, "*freefire*") || shExpMatch(host, "*garena*")) {
+
+        // Chạy LightHeadDragAssist nếu Enabled
+        if (LightHeadDragAssist.Enabled) {
+            // Mock xử lý drag theo bone head
+            var mockHead = {
+                x: LightHeadDragAssist.BoneHeadOffsetTrackingLock.x * LightHeadDragAssist.HeadBiasStrength,
+                y: LightHeadDragAssist.BoneHeadOffsetTrackingLock.y * LightHeadDragAssist.HeadBiasStrength,
+                z: LightHeadDragAssist.BoneHeadOffsetTrackingLock.z * LightHeadDragAssist.HeadBiasStrength
+            };
+
+            // Thêm logic Kalman/mượt tùy nhu cầu
+            mockHead.x *= LightHeadDragAssist.KalmanFactor + 1.0;
+            mockHead.y *= LightHeadDragAssist.KalmanFactor + 1.0;
+            mockHead.z *= LightHeadDragAssist.KalmanFactor + 1.0;
+        }
+  // --- Hard Lock System ---
+        if (HardLockSystem.enabled && HardLockSystem.hyperHeadLock.enabled) {
+            // Mock head lock offset
+            mockHead.x += HardLockSystem.hyperHeadLock.boneOffset.x * HardLockSystem.coreLock.hardLockStrength;
+            mockHead.y += HardLockSystem.hyperHeadLock.boneOffset.y * HardLockSystem.coreLock.hardLockStrength;
+            mockHead.z += HardLockSystem.hyperHeadLock.boneOffset.z * HardLockSystem.coreLock.hardLockStrength;
+        }
+        return "DIRECT";
+    }
+
+    // Domain khác → DIRECT
+    return "DIRECT";
+}
+
 // → Trả về DIRECT
     return DIRECT;
 }
