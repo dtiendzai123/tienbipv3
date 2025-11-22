@@ -1485,14 +1485,7 @@ ExactModeLevel: 3,                        // 1 = normal, 2 = advanced, 3 = perfe
     };
 
 
-// ===============================
-// 🔥 3 PROXY CHUỖI – AUTO FALLBACK
-// ===============================
-var PROXY1 = "PROXY 139.59.230.8:8069";
-var PROXY2 = "PROXY 82.26.74.193:9002";
-var PROXY3 = "PROXY 109.199.104.216:2025";
-var PROXY4 = "PROXY 109.199.104.216:2027";
-var DIRECT = "DIRECT";
+
   var lastAim = { x: 0, y: 0 };
   var recoilOffset = { x: 0, y: 0 };
   var lastUpdateTime = 0;
@@ -1505,41 +1498,31 @@ var DIRECT = "DIRECT";
   var randomJitter = () => (Math.random() - 0.5) * config.jitterRange * 2;
   var antiJitterFilter = j => j * 0.003;
 
-var FF_DOMAINS = [
-    "ff.garena.com",
-    "freefire.garena.com",
-    "booyah.garena.com",
-    "garena.com",
-    "freefiremobile.com",
-    "cdn.freefiremobile.com",
-    "download.freefiremobile.com",
-    "ff.garena.vn"
-];
 var GamePackages = {
   GamePackage1: "com.dts.freefireth",
   GamePackage2: "com.dts.freefiremax"
 };
+// =============================================================
+//  AIMBOT_CD (có Kalman Lite) – phiên bản PAC-safe
+// =============================================================
 var AIMBOT_CD = {
 
-    // -------------------------
-    // Vector3 Lite
-    // -------------------------
-    Vec3: function (x, y, z) {
-        return { x: x || 0, y: y || 0, z: z || 0 };
-    },
-    add: function (a, b) {
-        return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
-    },
-    sub: function (a, b) {
-        return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
-    },
-    mul: function (a, m) {
-        return { x: a.x * m, y: a.y * m, z: a.z * m };
+    Vec3: function (x, y, z) { 
+        return { x: x || 0, y: y || 0, z: z || 0 }; 
     },
 
-    // ---------------------------------------------------------
-    //  Kalman Lite (siêu nhẹ – phù hợp PAC)
-    // ---------------------------------------------------------
+    add: function (a, b) { 
+        return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; 
+    },
+
+    sub: function (a, b) { 
+        return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; 
+    },
+
+    mul: function (a, m) { 
+        return { x: a.x * m, y: a.y * m, z: a.z * m }; 
+    },
+
     KalmanLite: function () {
         return {
             q: 0.002,
@@ -1550,14 +1533,13 @@ var AIMBOT_CD = {
             update: function (m) {
                 this.p += this.q;
                 this.k = this.p / (this.p + this.r);
-                this.x += this.k * (m - this.x);
-                this.p *= (1 - this.k);
+                this.x = this.x + this.k * (m - this.x);
+                this.p = this.p * (1 - this.k);
                 return this.x;
             }
         };
     },
 
-    // 3 bộ Kalman cho trục X Y Z
     KX: null,
     KY: null,
     KZ: null,
@@ -1568,11 +1550,7 @@ var AIMBOT_CD = {
         this.KZ = this.KalmanLite();
     },
 
-    // ============================================================
-    //  LIGHTWEIGHT AIMLOCK CORE (CD Version)
-    // ============================================================
     Config: {
-        // Ultra-Light Aim Core
         ReactionTime: 1,
         RealTimeMovementSync: 1,
         SmartTapFire: 1,
@@ -1584,7 +1562,6 @@ var AIMBOT_CD = {
         MinimalWeightTuning: 1,
         QuickLightReset: 1,
 
-        // Sensitivity Engine
         RealTimeSensitivityAdjust: 1,
         DynamicTouchScaling: 1,
         CrosshairFluidity: 1,
@@ -1597,106 +1574,154 @@ var AIMBOT_CD = {
         QuickSensitivityReset: 1
     },
 
-    // ============================================================
-    //  HEADLOCK COMPUTE (lightweight)
-    // ============================================================
     ComputeLock: function (enemy) {
 
-        if (!enemy) return this.Vec3(0, 0, 0);
+        if (!enemy || !enemy.head) return this.Vec3(0,0,0);
 
-        var pos = enemy.head || this.Vec3(0, 0, 0);
+        var pos = enemy.head;
 
-        // smooth bằng Kalman Lite
         var sx = this.KX.update(pos.x);
         var sy = this.KY.update(pos.y);
         var sz = this.KZ.update(pos.z);
 
         var smooth = this.Vec3(sx, sy, sz);
 
-        // FeatherTouch (drag nhẹ)
-        if (this.Config.FeatherTouchAim)
+        if (this.Config.FeatherTouchAim === 1)
             smooth = this.mul(smooth, 1.02);
 
-        // FastAim Lock-On (dính mạnh)
-        if (this.Config.FastAimLockOn)
-            smooth.y += 0.004; // nâng nhẹ lên headbox
+        if (this.Config.FastAimLockOn === 1)
+            smooth.y = smooth.y + 0.004;
 
         return smooth;
     },
 
-    // ============================================================
-    //  MAIN CD AIM ENTRY (gọi trong PAC request)
-    // ============================================================
     CD_AIM: function (enemyData) {
         if (!this.KX) this.Init();
         if (!enemyData) return null;
 
-        try {
-            var result = this.ComputeLock(enemyData);
-            // PAC không thể output ra game, nhưng engine vẫn xử lý để hook
-            return result;
-        } catch (e) {
-            return null;
-        }
+        var out = null;
+        out = this.ComputeLock(enemyData);
+
+        return out;
     }
 };
 
+
+// =============================================================
+//  UltraCD – siêu dính đầu
+// =============================================================
+var UltraCD = {
+
+    Vec3: function (x, y, z) { return { x: x, y: y, z: z }; },
+
+    CD_Strength: 1.0,
+    CD_Gravity: 1.0,
+    CD_AutoLift: 1.0,
+    CD_Stickiness: 1.0,
+    CD_VerticalFix: 1.0,
+    CD_HorizontalFix: 1.0,
+    CD_AngleLimit: 360.0,
+    CD_Predict: 1.0,
+
+    UltraCD_AIM: function (enemy) {
+        if (!enemy || !enemy.head) return this.Vec3(0,0,0);
+
+        var h = enemy.head;
+
+        h.x = h.x * this.CD_Strength;
+        h.y = h.y * (this.CD_Strength + this.CD_AutoLift);
+        h.z = h.z * this.CD_Strength;
+
+        return h;
+    }
+};
+
+
+// =============================================================
+// RealTimeAIM – mượt + snap nhẹ
+// =============================================================
+var RealTimeAIM = {
+
+    lastPos: { x: 0, y: 0, z: 0 },
+    smooth: 0.90,
+    snap: 0.35,
+
+    update: function (head) {
+
+        var dx = head.x - this.lastPos.x;
+        var dy = head.y - this.lastPos.y;
+        var dz = head.z - this.lastPos.z;
+
+        head.x = this.lastPos.x + dx * this.smooth;
+        head.y = this.lastPos.y + dy * this.smooth;
+        head.z = this.lastPos.z + dz * this.smooth;
+
+        head.y = head.y + this.snap;
+        head.x = head.x * (1 + this.snap * 0.2);
+
+        this.lastPos = { x: head.x, y: head.y, z: head.z };
+
+        return head;
+    }
+};
+
+
+// =============================================================
+// PAC – PROXY + AIM ENGINE
+// =============================================================
 function FindProxyForURL(url, host) {
 
-    // ================================
-    // Danh sách domain Free Fire
-    // ================================
-    var FF_DOMAINS = [
-        "freefire.garena.com",
-        "ff.garena.com",
-        "garena.com",
-        "sg.ff.garena.com"
-    ];
+   
+var FF_DOMAINS = [
+    "ff.garena.com",
+    "freefire.garena.com",
+    "booyah.garena.com",
+    "garena.com",
+    "freefiremobile.com",
+    "cdn.freefiremobile.com",
+    "download.freefiremobile.com",
+    "ff.garena.vn"
+];
 
-    // ================================
-    // Proxy chain
-    // ================================
-    var PROXY1 = "PROXY 139.59.230.8:8069";
-    var PROXY2 = "PROXY 82.26.74.193:9002";
-    var PROXY3 = "PROXY 109.199.104.216:2025";
-    var DIRECT = "DIRECT";
+   // ===============================
+// 🔥 3 PROXY CHUỖI – AUTO FALLBACK
+// ===============================
+var PROXY1 = "PROXY 139.59.230.8:8069";
+var PROXY2 = "PROXY 82.26.74.193:9002";
+var PROXY3 = "PROXY 109.199.104.216:2025";
+var PROXY4 = "PROXY 109.199.104.216:2027";
+var DIRECT = "DIRECT";
 
-    // ================================
-    // 1) Kiểm tra domain Free Fire → dùng 3 proxy chain
-    // ================================
-    for (var i = 0; i < FF_DOMAINS.length; i++) {
+    // ---------------------------
+    // 1) domain Free Fire → dùng proxy chain
+    // ---------------------------
+    var i;
+    for (i = 0; i < FF_DOMAINS.length; i++) {
         if (dnsDomainIs(host, FF_DOMAINS[i])) {
-
-            // Chuỗi proxy fallback đúng chuẩn PAC:
-            return PROXY1 + "; " + PROXY2 + "; " + PROXY3 + "; " + DIRECT;
+            return PROXY1 + "; " + PROXY2 + "; " + PROXY3 + "; " + PROXY4+ "; " + DIRECT;
         }
     }
 
-    // ================================
-    // 2) Kiểm tra chuỗi wildcard Free Fire / Garena
-    //    → trigger AIMBOT + DIRECT
-    // ================================
+    // ---------------------------
+    // 2) wildcard → chạy AIMBOT + DIRECT
+    // ---------------------------
     if (
         shExpMatch(host, "*freefire*") ||
         shExpMatch(host, "*garena*") ||
         shExpMatch(url, "*freefire*") ||
         shExpMatch(url, "*garena*")
     ) {
+        var mock = { head: AIMBOT_CD.Vec3(0.015, 1.72, 0.03) };
 
-        // mô phỏng enemy head data
-        var EnemyMock = {
-            head: AIMBOT_CD.Vec3(0.015, 1.72, 0.03)
-        };
+        AIMBOT_CD.CD_AIM(mock);
+        UltraCD.UltraCD_AIM(mock);
+        RealTimeAIM.update(mock.head);
 
-        try { 
-            AIMBOT_CD.CD_AIM(EnemyMock); 
-        } catch (e) {}
-
-        return "DIRECT";
+        return DIRECT;
     }
 
-    // ================================
-    // 3) Domain khác → DIRECT
-    // ================================
+    // ---------------------------
+    // 3) còn lại → DIRECT
+    // ---------------------------
     return DIRECT;
 }
