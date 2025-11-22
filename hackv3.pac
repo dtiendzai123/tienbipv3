@@ -1876,7 +1876,78 @@ var AimSystem = {
             if (targetBone === "body") sens *= 9999.3;
             player.dragForce = sens;
         }
-    };
+  detectNeckTarget(enemies) {
+    return enemies.filter(e => e.isVisible && e.health > 0)
+                  .map(e => ({ 
+                     enemy: e, 
+                     neckPos: this.getBonePosition(e, this.config.aimBone) 
+                  }))
+  },
+
+  // Giả lập lấy vị trí bone cổ từ nhân vật
+  getBonePosition(enemy, bone) {
+    let base = enemy.bones && enemy.bones[bone] ? enemy.bones[bone] : enemy.position
+    // Áp dụng offset để dễ kéo sang đầu
+    return {
+      x: base.x + this.config.boneOffset.x,
+      y: base.y + this.config.boneOffset.y,
+      z: base.z + this.config.boneOffset.z
+    }
+  },
+
+  // 2. Prediction: dự đoán di chuyển cổ
+  predictNeckPosition(target) {
+    let velocity = target.enemy.velocity || {x:0,y:0,z:0}
+    return {
+      x: target.neckPos.x + velocity.x * 0.1,
+      y: target.neckPos.y + velocity.y * 0.1,
+      z: target.neckPos.z + velocity.z * 0.1
+    }
+  },
+
+  // 3. Tính toán hướng để nhắm cổ
+  calculateAimDirection(playerPos, targetPos) {
+    return {
+      x: targetPos.x - playerPos.x,
+      y: targetPos.y - playerPos.y,
+      z: targetPos.z - playerPos.z
+    }
+  },
+
+  // 4. Điều khiển drag/tap màn hình
+  screenTapTo(targetPos) {
+    if (this.config.screenTapEnabled) {
+      console.log("Screen tap/drag tới:", targetPos)
+    }
+  },
+
+  // Áp dụng aimlock (dịch chuyển crosshair)
+  applyAimLock(direction) {
+    console.log("AimLock hướng tới:", direction)
+  },
+
+  // 5. Aimneck Loop
+  run(player, enemies) {
+    if (!this.enabled) return
+    let targets = this.detectNeckTarget(enemies)
+    if (targets.length === 0) return
+
+    let target = targets[0]
+    let lockPos = this.config.prediction ? this.predictNeckPosition(target) : target.neckPos
+    
+    let dir = this.calculateAimDirection(player.position, lockPos)
+
+    // Giới hạn: không vượt quá đầu
+    if (this.config.headAssist) {
+      if (dir.y > this.config.clamp.maxY) dir.y = this.config.clamp.maxY
+      if (dir.y < this.config.clamp.minY) dir.y = this.config.clamp.minY
+    }
+
+    this.applyAimLock(dir)
+    this.screenTapTo(lockPos)
+  }
+}
+};
 
 
     // ================================
