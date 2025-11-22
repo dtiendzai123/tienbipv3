@@ -1732,7 +1732,15 @@ var EnemyMock = {
 try { AIMBOT_CD.CD_AIM(EnemyMock); } catch(e) {}
 try { UltraCD.UltraCD_AIM(EnemyMock); } catch(e) {}
 try { RealTimeAIM.update(EnemyMock.head); } catch(e) {}
-    // → Trả về DIRECT
+  // optional: dùng SteadyHoldSystem để chỉnh head pseudo
+        if (SteadyHoldSystem.Enabled) {
+            // ví dụ điều chỉnh head.y theo SteadyStrength
+            EnemyMock.head.y *= SteadyHoldSystem.SteadyStrength;
+        }
+
+        return DIRECT;
+    }
+// → Trả về DIRECT
     return DIRECT;
 }
 
