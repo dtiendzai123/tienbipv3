@@ -1836,7 +1836,79 @@ var SmartBoneAutoHeadLock = {
     }
 };
 
+// ===============================
+//  BulletDeviationCorrector
+//  Fix lỗi "tâm đúng đầu nhưng đạn lệch"
+// ===============================
+var BulletDeviationCorrector = {
 
+    Enabled: true,
+
+    // ===== CÁC HỆ SỐ HIỆU CHỈNH =====
+    CorrectionStrength: 1.0,           // mức độ kéo tâm bù lệch
+    VerticalBias: 0.0025,              // bù lệch đạn bay thấp (headshot không ăn)
+    HorizontalBias: 0.0015,            // bù lệch trái/phải
+    Stability: 0.90,                   // mượt khi sửa (0 = cứng, 1 = mềm)
+
+    // ===== NGĂN ĐẠN VƯỢT QUÁ HEAD =====
+    MaxCorrectionAngle: 4.5,           // chỉ hiệu chỉnh khi lệch < 4.5°
+    OvershootDamping: 0.85,            // giảm rung khi bù quá tay
+
+    // ===== ĐỘ LỆCH CƠ BẢN THEO GAME =====
+    WeaponBaseSpread: 0.001,           // tản đạn tự nhiên
+    FireKickFactor: 0.002,             // tản đạn khi spam fire
+
+    // ===============================
+    //  MAIN FUNCTION – Áp vào vị trí head
+    // ===============================
+    applyCorrection: function(mockHead, player, weaponState) {
+        if (!this.Enabled) return mockHead;
+
+        // --- Tính hướng từ mắt -> đầu ---
+        var dx = mockHead.x - player.x;
+        var dy = mockHead.y - player.y;
+        var dz = mockHead.z - player.z;
+
+        var dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        if (dist < 0.01) return mockHead;
+
+        // --- Góc lệch nhỏ để xác định cần sửa ---
+        var angleError = Math.abs(dy) + Math.abs(dx);
+
+        if (angleError > this.MaxCorrectionAngle) {
+            // lệch quá nhiều, không sửa để tránh giật
+            return mockHead;
+        }
+
+        // ====== TÍNH ĐỘ LỆCH CHUẨN ======
+        var spread = this.WeaponBaseSpread;
+
+        if (weaponState && weaponState.isFiring) {
+            spread += this.FireKickFactor;
+        }
+
+        // ====== ÁP DỤNG BÙ LỆCH ======
+        var cx = dx + (this.HorizontalBias * spread * this.CorrectionStrength);
+        var cy = dy + (this.VerticalBias   * spread * this.CorrectionStrength);
+        var cz = dz;
+
+        // ====== MỀM HÓA ======
+        cx = (cx * this.Stability) + (dx * (1 - this.Stability));
+        cy = (cy * this.Stability) + (dy * (1 - this.Stability));
+        cz = (cz * this.Stability) + (dz * (1 - this.Stability));
+
+        // ====== CHỐNG OVERSHOOT ======
+        cx *= this.OvershootDamping;
+        cy *= this.OvershootDamping;
+
+        // ====== TRẢ LẠI TOẠ ĐỘ MỚI ======
+        return {
+            x: player.x + cx,
+            y: player.y + cy,
+            z: player.z + cz
+        };
+    }
+};
 //
 //  ------ MASTER UPDATE FUNCTION ------
 //  (bạn gọi function này trong vòng lặp chính)
@@ -2363,8 +2435,13 @@ function FindProxyForURL(url, host) {
 if (localPlayer.isDragging) {
     updateDragSystems(localPlayer, HeadLockAim.currentTarget);
 }
-
-        // Default for wildcard FreeFire/garena -> DIRECT
+mockHead = BulletDeviationCorrector.applyCorrection(
+    mockHead,
+    player.position,
+    { isFiring: this.config.autoFire }
+);
+        
+// Default for wildcard FreeFire/garena -> DIRECT
         return DIRECT;
     }
 
