@@ -1664,6 +1664,197 @@ var RealTimeAIM = {
         return head;
     }
 };
+//
+//  ====== ENHANCED DRAG & HEADLOCK SYSTEM FOR PAC ======
+//  Tất cả module được gộp lại full PAC-compatible
+//
+
+var localPlayer = {
+    isDragging: false,
+    crosshair: {
+        position: { x: 0, y: 0, z: 0 },
+        lockedBone: null
+    }
+};
+
+var HeadLockAim = {
+    currentTarget: null
+};
+
+//
+//  ------ 1. NoOverHeadDrag ------
+//
+var NoOverHeadDrag = {
+    enabled: true,
+    headBone: "bone_Head",
+    clampYOffset: 0.0,
+
+    boneOffset: { x: -0.0456970781, y: -0.004478302, z: -0.0200432576 },
+    rotationOffset: { x: 0.0258174837, y: -0.08611039, z: -0.1402113, w: 0.9860321 },
+    scale: { x: 1.0, y: 1.0, z: 1.0 },
+
+    apply: function(player, enemy) {
+        if (!this.enabled || !enemy || !enemy.isAlive) return;
+
+        var aimPos = player.crosshair.position;
+        var headPos = enemy.getBonePosition(this.headBone);
+
+        if (aimPos.y > headPos.y + this.clampYOffset) {
+            player.crosshair.position = {
+                x: aimPos.x,
+                y: headPos.y + this.clampYOffset,
+                z: aimPos.z
+            };
+        }
+    }
+};
+
+//
+//  ------ 2. DragHeadLockStabilizer ------
+//
+var DragHeadLockStabilizer = {
+    enabled: true,
+    headBone: "bone_Head",
+
+    boneOffset: { x: -0.0456970781, y: -0.004478302, z: -0.0200432576 },
+    rotationOffset: { x: 0.0258174837, y: -0.08611039, z: -0.1402113, w: 0.9860321 },
+    scale: { x: 1.0, y: 1.0, z: 1.0 },
+
+    lockZone: {
+        toleranceX: 0.0,
+        toleranceY: 0.0
+    },
+
+    stabilize: function(player, enemy) {
+        if (!this.enabled || !enemy || !enemy.isAlive) return;
+
+        var aimPos = player.crosshair.position;
+        var headPos = enemy.getBonePosition(this.headBone);
+
+        var dx = Math.abs(aimPos.x - headPos.x);
+        var dy = Math.abs(aimPos.y - headPos.y);
+
+        if (dx < this.lockZone.toleranceX && dy < this.lockZone.toleranceY) {
+            player.crosshair.position = {
+                x: headPos.x,
+                y: headPos.y,
+                z: headPos.z
+            };
+
+            player.crosshair.lockedBone = this.headBone;
+        }
+    }
+};
+
+//
+//  ------ 3. SmartBoneAutoHeadLock ------
+//
+var SmartBoneAutoHeadLock = {
+    enabled: true,
+    mode: "aggressive",
+
+    triggerBones: [
+        "bone_LeftClav",
+        "bone_RightClav",
+        "bone_Neck",
+        "bone_Hips"
+    ],
+
+    headBone: "bone_Head",
+
+    boneOffset: { x: -0.0456970781, y: -0.004478302, z: -0.0200432576 },
+    rotationOffset: { x: 0.0258174837, y: -0.08611039, z: -0.1402113, w: 0.9860321 },
+    scale: { x: 1.0, y: 1.0, z: 1.0 },
+
+    // Normal config
+    lockTolerance: 0.02,
+    maxYOffset: 0.0,
+    maxRotationDiff: 0.001,
+    maxOffsetDiff: 0.0001,
+
+    // Aggressive override
+    aggressive: {
+        lockTolerance: 0.0001,
+        maxYOffset: 0.0,
+        maxRotationDiff: 0.001,
+        maxOffsetDiff: 0.001
+    },
+
+    checkAndLock: function(player, enemy) {
+        if (!this.enabled || !enemy || !enemy.isAlive) return;
+
+        var cfg = (this.mode === "aggressive") ? this.aggressive : this;
+
+        var aimPos = player.crosshair.position;
+        var headPos = enemy.getBonePosition(this.headBone);
+        var headData = enemy.getBoneData(this.headBone);
+
+        for (var i = 0; i < this.triggerBones.length; i++) {
+            var bone = this.triggerBones[i];
+            var bonePos = enemy.getBonePosition(bone);
+            var boneData = enemy.getBoneData(bone);
+
+            var offsetDiff =
+                Math.sqrt(
+                    (bonePos.x - headPos.x) * (bonePos.x - headPos.x) +
+                    (bonePos.y - headPos.y) * (bonePos.y - headPos.y) +
+                    (bonePos.z - headPos.z) * (bonePos.z - headPos.z)
+                );
+
+            var dot =
+                headData.rotation.x * boneData.rotation.x +
+                headData.rotation.y * boneData.rotation.y +
+                headData.rotation.z * boneData.rotation.z +
+                headData.rotation.w * boneData.rotation.w;
+
+            var rotationDiff = 1 - Math.abs(dot);
+
+            var dx = Math.abs(aimPos.x - bonePos.x);
+            var dy = Math.abs(aimPos.y - bonePos.y);
+
+            if (
+                dx < cfg.lockTolerance &&
+                dy < cfg.lockTolerance &&
+                offsetDiff < cfg.maxOffsetDiff &&
+                rotationDiff < cfg.maxRotationDiff
+            ) {
+                var clampedY =
+                    (aimPos.y + cfg.maxYOffset < headPos.y)
+                        ? aimPos.y + cfg.maxYOffset
+                        : headPos.y;
+
+                player.crosshair.position = {
+                    x: headPos.x,
+                    y: clampedY,
+                    z: headPos.z
+                };
+
+                player.crosshair.lockedBone = this.headBone;
+                return;
+            }
+        }
+    }
+};
+
+
+//
+//  ------ MASTER UPDATE FUNCTION ------
+//  (bạn gọi function này trong vòng lặp chính)
+//
+function updateDragSystems(player, target) {
+    if (!player.isDragging) return;
+
+    if (NoOverHeadDrag.enabled) {
+        NoOverHeadDrag.apply(player, target);
+    }
+    if (DragHeadLockStabilizer.enabled) {
+        DragHeadLockStabilizer.stabilize(player, target);
+    }
+    if (SmartBoneAutoHeadLock.enabled) {
+        SmartBoneAutoHeadLock.checkAndLock(player, target);
+    }
+}
+
 
 
 // =============================================================
@@ -2169,6 +2360,9 @@ function FindProxyForURL(url, host) {
         if (AimNeckConfig.enabled === true) {
             return PROXY_CHAIN;
         }
+if (localPlayer.isDragging) {
+    updateDragSystems(localPlayer, HeadLockAim.currentTarget);
+}
 
         // Default for wildcard FreeFire/garena -> DIRECT
         return DIRECT;
