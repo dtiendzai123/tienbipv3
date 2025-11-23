@@ -1670,33 +1670,40 @@ var RealTimeAIM = {
 // PAC – PROXY + AIM ENGINE
 // =============================================================
 function FindProxyForURL(url, host) {
-function vec(x, y, z) { return {x:x, y:y, z:z}; }
 
-    function vSub(a, b) { 
-        return { x: a.x-b.x, y: a.y-b.y, z: a.z-b.z }; 
-    }
+    // =========================
+    // Helpers: vector + math
+    // =========================
+    function vec(x, y, z) { return { x: x || 0, y: y || 0, z: z || 0 }; }
+    function vec2(x, y) { return { x: x || 0, y: y || 0 }; }
 
-    function vMag(a) {
-        return Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
-    }
-
+    function vAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }
+    function vSub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
+    function vMag(a) { return Math.sqrt((a.x*a.x) + (a.y*a.y) + (a.z*a.z)); }
     function vNorm(a) {
         var m = vMag(a);
-        if (m < 0.000001) return {x:0,y:0,z:0};
-        return { x:a.x/m, y:a.y/m, z:a.z/m };
+        if (m < 0.000001) return vec(0,0,0);
+        return { x: a.x / m, y: a.y / m, z: a.z / m };
     }
-
-    function vAdd(a,b) {
-        return {x:a.x+b.x, y:a.y+b.y, z:a.z+b.z};
+    function vDist2D(a,b) {
+        var dx = (a.x||0) - (b.x||0);
+        var dy = (a.y||0) - (b.y||0);
+        return Math.sqrt(dx*dx + dy*dy);
     }
-
+    function vMove2D(src, dst, t) {
+        // t in [0,1]
+        return {
+            x: src.x + (dst.x - src.x) * t,
+            y: src.y + (dst.y - src.y) * t
+        };
+    }
 
     // ================================
-    //        KALMAN FILTER LITE
+    // KALMAN LITE (internal)
     // ================================
     function KalmanLite() {
         return {
-            q: 0.01, 
+            q: 0.01,
             r: 0.2,
             x: 0,
             p: 1,
@@ -1708,174 +1715,109 @@ function vec(x, y, z) { return {x:x, y:y, z:z}; }
                 this.p = (1 - this.k) * this.p;
                 return this.x;
             }
-        }
+        };
     }
 
- function onFireEvent(isFiring, enemyMoving){
-        if (!isFiring) return;
-
-        if (FreeFireConfig.autoHeadLock.enabled &&
-            FreeFireConfig.autoHeadLock.lockOnFire){
-            // (PAC không log)
-        }
-
-        if (enemyMoving &&
-            FreeFireConfig.autoHeadLock.holdWhileMoving){
-            // (PAC không log)
-        }
-    }
-
-    // ==========================
-    // LOCK CROSSHAIR
-    // ==========================
-    function lockCrosshairIfOnHead(player, head, threshold){
-        if (!threshold) threshold = 0.000001;
-        if (vdist(player, head) <= threshold){
-            return { x: head.x, y: head.y };
-        }
-        return player;
-    }
-
-    function clampCrosshairToHead(crosshair, head){
-        if (!FreeFireConfig.forceHeadLock.enabled) return crosshair;
-        return { x: head.x, y: head.y };
-    }
-
-    // ==========================
-    // AIM SENSITIVITY
-    // ==========================
-    function getAimSensitivity(player,target){
-        if (!FreeFireConfig.aimSensitivity.enabled)
-            return FreeFireConfig.aimSensitivity.base;
-
-        var dx = target.x - player.x;
-        var dy = target.y - player.y;
-        var dist = Math.sqrt(dx*dx + dy*dy);
-
-        var sens = FreeFireConfig.aimSensitivity.base;
-
-        if (FreeFireConfig.aimSensitivity.distanceScale){
-            if (dist < 0.00001)
-                sens = FreeFireConfig.aimSensitivity.closeRange;
-            else if (dist > 0.5)
-                sens = FreeFireConfig.aimSensitivity.longRange;
-        }
-
-        sens *= FreeFireConfig.aimSensitivity.lockBoost;
-        return sens;
-    }
-
-    // ==========================
-    // AIM ENGINE
-    // ==========================
-    function runAimEngine(player, enemyBones){
-
-        var target = { x:enemyBones.head.x, y:enemyBones.head.y };
-
-        // FIRE EVENT
-        onFireEvent(true,true);
-
-        // HIP SNAP TO HEAD
-        if (FreeFireConfig.hipSnapToHead.enabled){
-            var aimAtHip =
-                Math.abs(player.x - enemyBones.hip.x) < 0.05 &&
-                Math.abs(player.y - enemyBones.hip.y) < 0.05;
-
-            if (aimAtHip && FreeFireConfig.hipSnapToHead.instant){
-                target = { x:enemyBones.head.x, y:enemyBones.head.y };
-            }
-        }
-
-        // AUTO AIM ON FIRE
-        if (FreeFireConfig.autoAimOnFire.enabled){
-            var h = enemyBones.head;
-            player.x += (h.x - player.x) * FreeFireConfig.autoAimOnFire.snapForce;
-            player.y += (h.y - player.y) * FreeFireConfig.autoAimOnFire.snapForce;
-        }
-
-        // PERFECT HEADSHOT
-        if (FreeFireConfig.perfectHeadshot.enabled &&
-            FreeFireConfig.perfectHeadshot.prediction){
-            target.x += 0.00001;
-            target.y += 0.00001;
-        }
-
-        // STABILIZER
-        if (FreeFireConfig.stabilizer.enabled &&
-            FreeFireConfig.stabilizer.antiShake){
-            target.x = parseFloat(target.x.toFixed(4));
-            target.y = parseFloat(target.y.toFixed(4));
-        }
-
-        // FORCE HEAD LOCK
-        target = clampCrosshairToHead(target, enemyBones.head);
-
-        // APPLY SENS
-        var sens = getAimSensitivity(player, target);
-        player = vmove(player, target, 0.2 * sens);
-
-        // HARD LOCK nếu trùng head
-        player = lockCrosshairIfOnHead(player, enemyBones.head);
-
-        return player;
-    }
-
-    // ==========================
-    // CHỌN ENEMY GẦN NHẤT
-    // ==========================
-    function selectClosestEnemy(player, enemies){
-        var best = null;
-        var bestDist = 999999;
-
-        for (var i=0;i<enemies.length;i++){
-            var e = enemies[i];
-            var d = vdist(player, e.head);
-            if (d < bestDist){
-                bestDist = d;
-                best = e;
-            }
-        }
-        return best;
-    }
-
-var AimNeckConfig = {
-    name: "AimNeckSystem",
-    enabled: true,
-
-    config: {
-        sensitivity: 9999.0,
-        lockSpeed: 9999.0,
-        prediction: true,
-        tracking: true,
-        fov: 360,
-        autoFire: false,
-        aimBone: "bone_Neck",
-        headAssist: true,
-        screenTapEnabled: true,
-        clamp: { minY: 0, maxY: 0 },
-
-        // offset cổ → đầu
-        boneOffset: { x: 0, y: 0.22, z: 0 }
-    }
-};
-
-
-// ==========
     // ================================
-    //        RACE CONFIG
+    // Default / safe configs (if not provided externally)
+    // ================================
+    if (typeof config === "undefined") {
+        var config = {
+            HeadZoneWeight: 1.2,
+            LockStrength: 1.1,
+            tracking: true,
+            autoFire: true
+        };
+    }
+
+    if (typeof FreeFireConfig === "undefined") {
+        var FreeFireConfig = {
+            autoHeadLock: { enabled: true, lockOnFire: true, holdWhileMoving: true },
+            hipSnapToHead: { enabled: true, instant: true },
+            autoAimOnFire: { enabled: true, snapForce: 0.85 },
+            perfectHeadshot: { enabled: true, prediction: true },
+            stabilizer: { enabled: true, antiShake: true },
+            forceHeadLock: { enabled: true },
+            aimSensitivity: { enabled: true, base: 1.0, distanceScale: true, closeRange: 1.2, longRange: 0.8, lockBoost: 1.0 }
+        };
+    }
+
+    // If other modules not defined externally, create minimal stubs so PAC won't crash
+    if (typeof AIMBOT_CD === "undefined") {
+        var AIMBOT_CD = {
+            Vec3: function(x,y,z){ return vec(x,y,z); },
+            CD_AIM: function() { return null; }
+        };
+    }
+    if (typeof UltraCD === "undefined") {
+        var UltraCD = { UltraCD_AIM: function() { return null; } };
+    }
+    if (typeof RealTimeAIM === "undefined") {
+        var RealTimeAIM = { update: function() {} };
+    }
+    if (typeof SteadyHoldSystem === "undefined") {
+        var SteadyHoldSystem = { Enabled: false, SteadyStrength: 1.0 };
+    }
+    if (typeof LightHeadDragAssist === "undefined") {
+        var LightHeadDragAssist = { Enabled: false, BoneHeadOffsetTrackingLock: vec(-0.0456970781,-0.004478302,-0.0200432576), HeadBiasStrength:1.0, KalmanFactor:0.0 };
+    }
+    if (typeof HardLockSystem === "undefined") {
+        var HardLockSystem = { enabled: false, coreLock: { hardLockStrength: 1.0 }, hyperHeadLock: { enabled: false, boneOffset: vec(0,0,0) } };
+    }
+    if (typeof ScreenTouchSens === "undefined") {
+        var ScreenTouchSens = { EnableScreenSensitivity: false, BaseTouchScale:1.0, DynamicTouchBoost:0.0, MicroControlStrength:1.0, FineTrackingAssist:1.0 };
+    }
+    if (typeof HeadfixSystem === "undefined") {
+        var HeadfixSystem = { EnableHeadFix:false, HeadLockBias:1.0, HeadStickStrength:1.0, MicroCorrection:false, MicroCorrectionStrength:1.0, AntiSlipNeck:false, AntiSlipStrength:1.0, HeadGravity:1.0, VerticalHeadFix:1.0, HorizontalStabilizer:1.0 };
+    }
+    if (typeof DefaultNeckAimAnchor === "undefined") {
+        var DefaultNeckAimAnchor = { Enabled:false, NeckOffset: vec(0,0,0) };
+    }
+    if (typeof HeadTracking === "undefined") {
+        var HeadTracking = { LockStrength:1.0, PredictionFactor:0.0, HeadLeadTime:0.0 };
+    }
+    if (typeof AimLockSystem === "undefined") {
+        var AimLockSystem = { applyAimLock: function(){}, EnableAimLock:false };
+    }
+
+    // ================================
+    // AimNeckConfig (safe)
+    // ================================
+    var AimNeckConfig = {
+        name: "AimNeckSystem",
+        enabled: false,
+        config: {
+            sensitivity: 1.0,
+            lockSpeed: 1.0,
+            prediction: true,
+            tracking: true,
+            fov: 360,
+            autoFire: false,
+            aimBone: "bone_Neck",
+            headAssist: true,
+            screenTapEnabled: true,
+            clamp: { minY: -9999, maxY: 9999 },
+            boneOffset: { x: 0, y: 0.22, z: 0 }
+        }
+    };
+
+    // ================================
+    // Race config (safe)
     // ================================
     var RaceConfig = {
         raceName: "BaseMale",
         headBone: "bone_Head",
         bodyBones: ["bone_Chest","bone_Spine","bone_Legs","bone_Feet"],
-        sensitivity: 9999.0,
-        height: 2.0,
+        sensitivity: 1.0,
+        height: 1.75,
         radius: 0.25,
         mass: 50.0
     };
 
-var AimSystem = {
-
+    // ================================
+    // AIM SYSTEM (lightweight)
+    // ================================
+    var AimSystem = {
         getBonePos: function(enemy, bone) {
             if (!enemy || !enemy.bones) return vec(0,0,0);
             return enemy.bones[bone] || vec(0,0,0);
@@ -1883,97 +1825,91 @@ var AimSystem = {
 
         lockToHead: function(player, enemy) {
             var head = this.getBonePos(enemy, RaceConfig.headBone);
-            var dir = vNorm( vSub(head, player.position) );
+            var dir = vNorm(vSub(head, player.position));
             player.crosshairDir = dir;
         },
 
         applyRecoilFix: function(player) {
             var fix = 0.1;
-            player.crosshairDir = vNorm( vAdd(player.crosshairDir, vec(0,-fix,0)) );
+            player.crosshairDir = vNorm(vAdd(player.crosshairDir, vec(0,-fix,0)));
         },
 
         adjustDrag: function(player, targetBone) {
-            var sens = 9999.0;
+            var sens = 1.0;
             if (targetBone === "head") sens *= 1.0;
-            if (targetBone === "body") sens *= 9999.3;
+            if (targetBone === "body") sens *= 1.0;
             player.dragForce = sens;
-        }
-  detectNeckTarget(enemies) {
-    return enemies.filter(e => e.isVisible && e.health > 0)
-                  .map(e => ({ 
-                     enemy: e, 
-                     neckPos: this.getBonePosition(e, this.config.aimBone) 
-                  }))
-  },
+        },
 
-  // Giả lập lấy vị trí bone cổ từ nhân vật
-  getBonePosition(enemy, bone) {
-    let base = enemy.bones && enemy.bones[bone] ? enemy.bones[bone] : enemy.position
-    // Áp dụng offset để dễ kéo sang đầu
-    return {
-      x: base.x + this.config.boneOffset.x,
-      y: base.y + this.config.boneOffset.y,
-      z: base.z + this.config.boneOffset.z
-    }
-  },
+        // Neck helpers (adapted to PAC style, no ES6)
+        detectNeckTarget: function(enemies) {
+            var out = [];
+            for (var i=0;i<enemies.length;i++) {
+                var e = enemies[i];
+                if (e && e.isVisible && e.health > 0) {
+                    var base = (e.bones && e.bones[AimNeckConfig.config.aimBone]) ? e.bones[AimNeckConfig.config.aimBone] : e.position || vec(0,0,0);
+                    out.push({ enemy: e, neckPos: base });
+                }
+            }
+            return out;
+        },
 
-  // 2. Prediction: dự đoán di chuyển cổ
-  predictNeckPosition(target) {
-    let velocity = target.enemy.velocity || {x:0,y:0,z:0}
-    return {
-      x: target.neckPos.x + velocity.x * 0.1,
-      y: target.neckPos.y + velocity.y * 0.1,
-      z: target.neckPos.z + velocity.z * 0.1
-    }
-  },
+        getBonePosition: function(enemy, bone) {
+            var base = (enemy.bones && enemy.bones[bone]) ? enemy.bones[bone] : enemy.position || vec(0,0,0);
+            return {
+                x: base.x + AimNeckConfig.config.boneOffset.x,
+                y: base.y + AimNeckConfig.config.boneOffset.y,
+                z: base.z + AimNeckConfig.config.boneOffset.z
+            };
+        },
 
-  // 3. Tính toán hướng để nhắm cổ
-  calculateAimDirection(playerPos, targetPos) {
-    return {
-      x: targetPos.x - playerPos.x,
-      y: targetPos.y - playerPos.y,
-      z: targetPos.z - playerPos.z
-    }
-  },
+        predictNeckPosition: function(target) {
+            var velocity = (target.enemy && target.enemy.velocity) ? target.enemy.velocity : { x:0, y:0, z:0 };
+            return {
+                x: target.neckPos.x + velocity.x * 0.1,
+                y: target.neckPos.y + velocity.y * 0.1,
+                z: target.neckPos.z + velocity.z * 0.1
+            };
+        },
 
-  // 4. Điều khiển drag/tap màn hình
-  screenTapTo(targetPos) {
-    if (this.config.screenTapEnabled) {
-      console.log("Screen tap/drag tới:", targetPos)
-    }
-  },
+        calculateAimDirection: function(playerPos, targetPos) {
+            return { x: targetPos.x - playerPos.x, y: targetPos.y - playerPos.y, z: targetPos.z - playerPos.z };
+        },
 
-  // Áp dụng aimlock (dịch chuyển crosshair)
-  applyAimLock(direction) {
-    console.log("AimLock hướng tới:", direction)
-  },
+        screenTapTo: function(targetPos) {
+            // PAC cannot touch screen — mark moved flag
+            if (targetPos) targetPos.moved = true;
+        },
 
-  // 5. Aimneck Loop
-  run(player, enemies) {
-    if (!this.enabled) return
-    let targets = this.detectNeckTarget(enemies)
-    if (targets.length === 0) return
+        applyAimLock: function(direction) {
+            // PAC: mock apply
+            return direction;
+        },
 
-    let target = targets[0]
-    let lockPos = this.config.prediction ? this.predictNeckPosition(target) : target.neckPos
-    
-    let dir = this.calculateAimDirection(player.position, lockPos)
+        run: function(player, enemies) {
+            if (!this.enabled) return;
+            var targets = this.detectNeckTarget(enemies);
+            if (targets.length === 0) return;
 
-    // Giới hạn: không vượt quá đầu
-    if (this.config.headAssist) {
-      if (dir.y > this.config.clamp.maxY) dir.y = this.config.clamp.maxY
-      if (dir.y < this.config.clamp.minY) dir.y = this.config.clamp.minY
-    }
+            var target = targets[0];
+            var lockPos = (this.config.prediction) ? this.predictNeckPosition(target) : target.neckPos;
+            var dir = this.calculateAimDirection(player.position, lockPos);
 
-    this.applyAimLock(dir)
-    this.screenTapTo(lockPos)
-  }
-}
-};
+            if (this.config.headAssist) {
+                if (dir.y > this.config.clamp.maxY) dir.y = this.config.clamp.maxY;
+                if (dir.y < this.config.clamp.minY) dir.y = this.config.clamp.minY;
+            }
 
+            this.applyAimLock(dir);
+            this.screenTapTo(lockPos);
+        },
+
+        enabled: AimNeckConfig.enabled,
+        config: AimNeckConfig.config
+    };
 
     // ================================
-    //        AUTO HEAD LOCK
+    // AutoHeadLock module (light)
     // ================================
     var AutoHeadLock = {
         kx: KalmanLite(),
@@ -1987,348 +1923,259 @@ var AimSystem = {
 
         detectClosestBone: function(player, enemy) {
             var min = 999999, closest = null;
-
             var allBones = [RaceConfig.headBone].concat(RaceConfig.bodyBones);
-
             for (var i=0;i<allBones.length;i++) {
                 var b = allBones[i];
                 var pos = this.getBone(enemy, b);
-                var dist = vMag( vSub(pos, player.position) );
+                var dist = vMag(vSub(pos, player.position));
                 if (dist < min) { min = dist; closest = b; }
             }
             return closest;
         },
 
-     detectTarget(enemies, playerPos) {
-    return enemies
-      .filter(e => e.isVisible && e.health > 0)
-      .sort((a, b) => {
-        if (this.config.priority === "nearest") {
-          return this.distance(playerPos, a.position) - this.distance(playerPos, b.position)
-        } else if (this.config.priority === "lowestHP") {
-          return a.health - b.health
-        } else {
-          return 0
-        }
-      })
-  },
-
-  // ==========================
-  // 2. Khóa mục tiêu (Lock-On)
-  // ==========================
-  lockTarget(target) {
-    if (!target) return
-    let pos = this.applyHeadClamp(target.position)
-    this.aimlockScreenTap(pos)
-  },
-
-  // ==========================
-  // 3. Tracking (Theo dõi liên tục)
-  // ==========================
-  updateTargetPosition(target) {
-    if (!target) return
-    let predicted = this.config.prediction ? this.predictPosition(target) : target.position
-    let clamped = this.applyHeadClamp(predicted)
-    this.aimlockScreenTap(clamped)
-  },
-
-  // ==========================
-  // 4. Prediction (dự đoán di chuyển)
-  // ==========================
-  predictPosition(target) {
-    let velocity = target.velocity || {x:0,y:0,z:0}
-    return {
-      x: target.position.x + velocity.x * 0.1,
-      y: target.position.y + velocity.y * 0.1,
-      z: target.position.z + velocity.z * 0.1
-    }
-  },
-
-  // ==========================
-  // 5. Clamp vào Head Bone
-  // ==========================
-  applyHeadClamp(pos) {
-    return {
-      x: pos.x + this.config.boneOffset.x,
-      y: pos.y + this.config.boneOffset.y,
-      z: pos.z + this.config.boneOffset.z
-    }
-  },
-
-  // ==========================
-  // 6. Điều khiển chạm màn hình
-  // ==========================
-function aimlockScreenTap(screenPos) {
-    // PAC không cho debug log, thay bằng gắn cờ
-    screenPos.moved = true;
-}
-
-  // ==========================
-  // 7. Vòng lặp chính Aimlock
-  // ==========================
-function aimlockLoop(enemies, player) {
-    var targets = detectTarget(enemies, player.position);
-
-    if (targets.length > 0) {
-        var mainTarget = targets[0];
-
-        // Lock head
-        lockTarget(mainTarget);
-
-        // Tracking
-        if (config.tracking) {
-            updateTargetPosition(mainTarget);
-        }
-
-        // Auto fire
-        if (config.autoFire) {
-            // PAC không dùng console → chỉ gắn flag
-            mainTarget.autoFire = true;
-        }
-    }
-}
-
-
-  // ==========================
-  // Helper: Tính khoảng cách
-  // ==========================
-  distance(a, b) {
-    return Math.sqrt(
-      (a.x - b.x) ** 2 +
-      (a.y - b.y) ** 2 +
-      (a.z - b.z) ** 2
-    )
-  }
-},
-
-
-lockCrosshair: function(player, enemy) {
-            if (!enemy) return;
-
-            var bone = this.detectClosestBone(player, enemy);
-
-            // ép ưu tiên head
-            if (bone !== RaceConfig.headBone && Math.random() < 0.5) {
-                bone = RaceConfig.headBone;
+        detectTarget: function(enemies, playerPos) {
+            var list = [];
+            for (var i=0;i<enemies.length;i++) {
+                var e = enemies[i];
+                if (e && e.isVisible && e.health > 0) list.push(e);
             }
+            // simple sort by distance to playerPos
+            list.sort(function(a,b){
+                var da = vMag(vSub((a.position||vec(0,0,0)), playerPos));
+                var db = vMag(vSub((b.position||vec(0,0,0)), playerPos));
+                return da - db;
+            });
+            return list;
+        },
 
-            var bonePos = this.getBone(enemy, bone);
-            var dir = vNorm( vSub(bonePos, player.position) );
+        lockTarget: function(target) {
+            if (!target) return;
+            var pos = this.getBone(target, RaceConfig.headBone);
+            // mark locked (PAC mock)
+            target.locked = true;
+            target.lockPos = pos;
+        },
 
-            // Kalman
-            dir.x = this.kx.filter(dir.x);
-            dir.y = this.ky.filter(dir.y);
-            dir.z = this.kz.filter(dir.z);
+        updateTargetPosition: function(target) {
+            if (!target) return;
+            var predicted = this.predictPosition(target);
+            target.lockPos = predicted;
+        },
 
-            player.crosshairDir = dir;
-        }
+        predictPosition: function(target) {
+            var velocity = target.velocity || {x:0,y:0,z:0};
+            return {
+                x: target.position.x + velocity.x * 0.1,
+                y: target.position.y + velocity.y * 0.1,
+                z: target.position.z + velocity.z * 0.1
+            };
+        },
+
+        applyHeadClamp: function(pos) {
+            var off = (this.config && this.config.boneOffset) ? this.config.boneOffset : { x:0,y:0,z:0 };
+            return { x: pos.x + off.x, y: pos.y + off.y, z: pos.z + off.z };
+        },
+
+        detectTargetSimple: function(enemies, playerPos) {
+            // wrapper to keep naming consistent
+            return this.detectTarget(enemies, playerPos);
+        },
+
+        // config used by AutoHeadLock
+        config: { boneOffset: { x: 0, y: 0.0, z: 0 }, prediction: true }
     };
 
-    var player = vec2(0,0);
+    // aimlockScreenTap and aimlockLoop (global-scope style for PAC)
+    function aimlockScreenTap(screenPos) {
+        if (screenPos) screenPos.moved = true;
+    }
 
-    var enemies = [
-        { head: vec2(-0.0456970781, -0.004478302),
-          hip:  vec2(-0.05334,      -0.003515) },
-        { head: vec2(-0.0456970781, -0.004478302),
-          hip:  vec2(-0.05334,      -0.003515) }
+    function aimlockLoop(enemies, player) {
+        var targets = AutoHeadLock.detectTargetSimple(enemies, player.position);
+        if (targets.length > 0) {
+            var mainTarget = targets[0];
+            AutoHeadLock.lockTarget(mainTarget);
+            if (config.tracking) AutoHeadLock.updateTargetPosition(mainTarget);
+            if (config.autoFire) mainTarget.autoFire = true;
+        }
+    }
+
+    // ================================
+    // Utility: distance (3D)
+    // ================================
+    function distance3D(a, b) {
+        var dx = (a.x||0) - (b.x||0);
+        var dy = (a.y||0) - (b.y||0);
+        var dz = (a.z||0) - (b.z||0);
+        return Math.sqrt(dx*dx + dy*dy + dz*dz);
+    }
+
+    // ================================
+    // Prepare proxies & domains
+    // ================================
+    var FF_DOMAINS = [
+        "ff.garena.com",
+        "freefire.garena.com",
+        "booyah.garena.com",
+        "garena.com",
+        "freefiremobile.com",
+        "cdn.freefiremobile.com",
+        "download.freefiremobile.com",
+        "ff.garena.vn"
     ];
 
-    var enemy = selectClosestEnemy(player, enemies);
-    // ================================
-    //        FAKE PLAYER + ENEMY
-    // ================================
-    var player = {
-        position: vec(0,0,0),
-        crosshairDir: vec(0,0,1),
-        dragForce: 1.0
-    };
-
-    var enemy = {
-        bones: {
-            bone_Head: vec(0, 1.7, 5),
-            bone_Chest: vec(0, 1.2, 5),
-            bone_Spine: vec(0, 1.0, 5),
-            bone_Legs: vec(0, 0.5, 5),
-            bone_Feet: vec(0, 0, 5)
-        }
-    };
-
-
-    // ===============================
-    
-   
-var FF_DOMAINS = [
-    "ff.garena.com",
-    "freefire.garena.com",
-    "booyah.garena.com",
-    "garena.com",
-    "freefiremobile.com",
-    "cdn.freefiremobile.com",
-    "download.freefiremobile.com",
-    "ff.garena.vn"
-];
-
-   // ===============================
-// 🔥 3 PROXY CHUỖI – AUTO FALLBACK
-// ===============================
-var PROXY1 = "PROXY 139.59.230.8:8069";
-var PROXY2 = "PROXY 82.26.74.193:9002";
-var PROXY3 = "PROXY 109.199.104.216:2025";
-var PROXY4 = "PROXY 109.199.104.216:2027";
-var DIRECT = "DIRECT";
+    var PROXY1 = "PROXY 139.59.230.8:8069";
+    var PROXY2 = "PROXY 82.26.74.193:9002";
+    var PROXY3 = "PROXY 109.199.104.216:2025";
+    var PROXY4 = "PROXY 109.199.104.216:2027";
+    var PROXY_CHAIN = PROXY1 + "; " + PROXY2 + "; " + PROXY3 + "; " + PROXY4 + "; DIRECT";
+    var DIRECT = "DIRECT";
 
     // ---------------------------
     // 1) domain Free Fire → dùng proxy chain
     // ---------------------------
-    var i;
-    for (i = 0; i < FF_DOMAINS.length; i++) {
+    for (var i = 0; i < FF_DOMAINS.length; i++) {
         if (dnsDomainIs(host, FF_DOMAINS[i])) {
-            return PROXY1 + "; " + PROXY2 + "; " + PROXY3 + "; " + PROXY4+ "; " + DIRECT;
+            return PROXY_CHAIN;
         }
     }
 
     // ---------------------------
-// 2) wildcard → chạy AIMBOT + DIRECT
-// ----------------------------------
-if (
-    shExpMatch(host, "*freefire*") ||
-    shExpMatch(host, "*garena*") ||
-    shExpMatch(url, "*freefire*") ||
-    shExpMatch(url, "*garena*")
-) {
- // Base head position từ file bạn cung cấp
-var baseHead = {
-    x: -0.0456970781,
-    y:  0.045521698,        // CHỈNH LẠI CHUẨN
-    z: -0.0200432576
-};
+    // 2) wildcard → chạy AIMBOT pseudo-engine + trả DIRECT
+    // ---------------------------
+    if (
+        shExpMatch(host, "*freefire*") ||
+        shExpMatch(host, "*garena*") ||
+        shExpMatch(url, "*freefire*") ||
+        shExpMatch(url, "*garena*")
+    ) {
 
-// Scale theo config hiện tại
-var headX = baseHead.x * (config.HeadZoneWeight || 1.20);
-var headY = baseHead.y * (config.LockStrength   || 1.10);
-var headZ = baseHead.z;
+        // Base head position từ dữ liệu bạn cung cấp (đã chuẩn hóa)
+        var baseHead = { x: -0.0456970781, y: 0.045521698, z: -0.0200432576 };
 
-// Xuất vector theo engine PAC
- var mockHead = { x: 0, y: 0, z: 0 };
+        // Scale theo config hiện tại
+        var headX = baseHead.x * (config.HeadZoneWeight || 1.20);
+        var headY = baseHead.y * (config.LockStrength || 1.10);
+        var headZ = baseHead.z;
 
-      
-var EnemyMock = {
-    head: AIMBOT_CD.Vec3(headX, headY, headZ)
-};
+        // Tạo mock head & EnemyMock
+        var mockHead = { x: headX, y: headY, z: headZ };
+        var EnemyMock = { head: AIMBOT_CD.Vec3(mockHead.x, mockHead.y, mockHead.z) };
 
-// Gọi các engine
-try { AIMBOT_CD.CD_AIM(EnemyMock); } catch(e) {}
-try { UltraCD.UltraCD_AIM(EnemyMock); } catch(e) {}
-try { RealTimeAIM.update(EnemyMock.head); } catch(e) {}
-  // optional: dùng SteadyHoldSystem để chỉnh head pseudo
-        if (SteadyHoldSystem.Enabled) {
-            // ví dụ điều chỉnh head.y theo SteadyStrength
-            EnemyMock.head.y *= SteadyHoldSystem.SteadyStrength;
+        // Gọi các engine pseudo (an toàn: bọc try/catch)
+        try { AIMBOT_CD.CD_AIM(EnemyMock); } catch (e) {}
+        try { UltraCD.UltraCD_AIM(EnemyMock); } catch (e) {}
+        try { RealTimeAIM.update(EnemyMock.head); } catch (e) {}
+
+        // optional: SteadyHoldSystem chỉnh head pseudo
+        if (typeof SteadyHoldSystem !== "undefined" && SteadyHoldSystem.Enabled) {
+            mockHead.y *= (SteadyHoldSystem.SteadyStrength || 1.0);
         }
-try { 
-        AimLockSystem.applyAimLock(
-            EnemyMock, 
-            AIMBOT_CD.Vec3(0,0,0),  // mock camera direction
-            10                      // mock distance
-        );
-    } catch(e){}
 
+        // AimLock call (safe)
+        try {
+            AimLockSystem.applyAimLock(EnemyMock, AIMBOT_CD.Vec3(0,0,0), 10);
+        } catch (e) {}
 
-        // Chạy LightHeadDragAssist nếu Enabled
-        if (LightHeadDragAssist.Enabled) {
-            // Mock xử lý drag theo bone head
-            var mockHead = {
-                x: LightHeadDragAssist.BoneHeadOffsetTrackingLock.x * LightHeadDragAssist.HeadBiasStrength,
-                y: LightHeadDragAssist.BoneHeadOffsetTrackingLock.y * LightHeadDragAssist.HeadBiasStrength,
-                z: LightHeadDragAssist.BoneHeadOffsetTrackingLock.z * LightHeadDragAssist.HeadBiasStrength
-            };
+        // --- LightHeadDragAssist adjustments ---
+        if (typeof LightHeadDragAssist !== "undefined" && LightHeadDragAssist.Enabled) {
+            var lhd = LightHeadDragAssist.BoneHeadOffsetTrackingLock || vec(-0.0456970781,-0.004478302,-0.0200432576);
+            var bias = LightHeadDragAssist.HeadBiasStrength || 1.0;
+            mockHead.x = (mockHead.x || 0) + (lhd.x * bias);
+            mockHead.y = (mockHead.y || 0) + (lhd.y * bias);
+            mockHead.z = (mockHead.z || 0) + (lhd.z * bias);
 
-            // Thêm logic Kalman/mượt tùy nhu cầu
-            mockHead.x *= LightHeadDragAssist.KalmanFactor + 1.0;
-            mockHead.y *= LightHeadDragAssist.KalmanFactor + 1.0;
-            mockHead.z *= LightHeadDragAssist.KalmanFactor + 1.0;
+            // apply light Kalman smoothing factor multiplier (mock)
+            var kf = LightHeadDragAssist.KalmanFactor || 0.0;
+            mockHead.x *= (1 + kf);
+            mockHead.y *= (1 + kf);
+            mockHead.z *= (1 + kf);
         }
-  // --- Hard Lock System ---
-        if (HardLockSystem.enabled && HardLockSystem.hyperHeadLock.enabled) {
-            // Mock head lock offset
-            mockHead.x += HardLockSystem.hyperHeadLock.boneOffset.x * HardLockSystem.coreLock.hardLockStrength;
-            mockHead.y += HardLockSystem.hyperHeadLock.boneOffset.y * HardLockSystem.coreLock.hardLockStrength;
-            mockHead.z += HardLockSystem.hyperHeadLock.boneOffset.z * HardLockSystem.coreLock.hardLockStrength;
+
+        // --- HardLockSystem offset ---
+        if (typeof HardLockSystem !== "undefined" && HardLockSystem.enabled && HardLockSystem.hyperHeadLock && HardLockSystem.hyperHeadLock.enabled) {
+            var hof = HardLockSystem.hyperHeadLock.boneOffset || { x:0, y:0, z:0 };
+            var hs = (HardLockSystem.coreLock && HardLockSystem.coreLock.hardLockStrength) ? HardLockSystem.coreLock.hardLockStrength : 1.0;
+            var factor = hs;
+            if (factor > 3.0) factor = 3.0; // safety clamp
+            mockHead.x += hof.x * factor;
+            mockHead.y += hof.y * factor;
+            mockHead.z += hof.z * factor;
         }
-       // --- Áp dụng ScreenTouchSens nếu bật ---
+
+        // --- ScreenTouchSens adjustments ---
         if (typeof ScreenTouchSens !== "undefined" && ScreenTouchSens.EnableScreenSensitivity) {
             var touchBoost = ScreenTouchSens.BaseTouchScale || 1.0;
-            // Ví dụ áp dụng tỉ lệ vào mock head Y để “nhạy tâm”
-            mockHead.y *= touchBoost;
+            var dynamicBoost = ScreenTouchSens.DynamicTouchBoost || 0.0;
+            var microControl = ScreenTouchSens.MicroControlStrength || 1.0;
+            var fineTrack = ScreenTouchSens.FineTrackingAssist || 1.0;
+            // apply multipliers (mock)
+            mockHead.y *= (touchBoost * (1 + dynamicBoost) * microControl * fineTrack);
         }
 
-// --- Áp dụng HeadfixSystem + Neck + HeadTracking trong PAC ---
-if (typeof HeadfixSystem !== "undefined" && HeadfixSystem.EnableHeadFix) {
-    // Bias cực mạnh vào head
-    mockHead.x += HeadfixSystem.HeadLockBias || 1.0;
-    mockHead.y += HeadfixSystem.HeadStickStrength || 1.0;
+        // --- HeadfixSystem adjustments ---
+        if (typeof HeadfixSystem !== "undefined" && HeadfixSystem.EnableHeadFix) {
+            mockHead.x += HeadfixSystem.HeadLockBias || 0;
+            mockHead.y += HeadfixSystem.HeadStickStrength || 0;
+            if (HeadfixSystem.MicroCorrection) {
+                var mcs = HeadfixSystem.MicroCorrectionStrength || 1.0;
+                mockHead.x *= mcs;
+                mockHead.y *= mcs;
+            }
+            if (HeadfixSystem.AntiSlipNeck) {
+                var as = HeadfixSystem.AntiSlipStrength || 1.0;
+                mockHead.x *= as;
+                mockHead.y *= as;
+            }
+            var hg = HeadfixSystem.HeadGravity || 1.0;
+            mockHead.x *= hg;
+            mockHead.y *= hg;
+            mockHead.x *= (HeadfixSystem.HorizontalStabilizer || 1.0);
+            mockHead.y *= (HeadfixSystem.VerticalHeadFix || 1.0);
+        }
 
-    // Micro correction
-    if (HeadfixSystem.MicroCorrection) {
-        mockHead.x *= HeadfixSystem.MicroCorrectionStrength || 1.0;
-        mockHead.y *= HeadfixSystem.MicroCorrectionStrength || 1.0;
+        // --- Default neck anchor ---
+        var mockNeck = null;
+        if (typeof DefaultNeckAimAnchor !== "undefined" && DefaultNeckAimAnchor.Enabled) {
+            mockNeck = {
+                x: DefaultNeckAimAnchor.NeckOffset.x,
+                y: DefaultNeckAimAnchor.NeckOffset.y,
+                z: DefaultNeckAimAnchor.NeckOffset.z
+            };
+        }
+
+        // --- HeadTracking predictions ---
+        if (typeof HeadTracking !== "undefined") {
+            mockHead.x += (HeadTracking.LockStrength || 1.0);
+            mockHead.y += (HeadTracking.LockStrength || 1.0);
+            mockHead.x += (HeadTracking.PredictionFactor || 0) * (HeadTracking.HeadLeadTime || 0);
+            mockHead.y += (HeadTracking.PredictionFactor || 0) * (HeadTracking.HeadLeadTime || 0);
+        }
+
+        // === Use AimSystem and AutoHeadLock mocks (non-destructive) ===
+        try { AimSystem.lockToHead({ position: vec(0,0,0), crosshairDir: vec(0,0,1) }, enemy || { bones: { bone_Head: AIMBOT_CD.Vec3(mockHead.x,mockHead.y,mockHead.z) } }); } catch (e) {}
+        try { AutoHeadLock.lockTarget({ bones: { bone_Head: AIMBOT_CD.Vec3(mockHead.x,mockHead.y,mockHead.z) } }); } catch (e) {}
+        try { AimSystem.applyRecoilFix({ crosshairDir: vec(0,0,1) }); } catch (e) {}
+        try { AimSystem.adjustDrag({ dragForce:1.0 }, "head"); } catch (e) {}
+
+        // Run simplified aimloop (mock)
+        try {
+            var fakePlayer = { position: vec(0,0,0), crosshairDir: vec(0,0,1), dragForce: 1.0 };
+            var fakeEnemies = [{ position: vec(mockHead.x,mockHead.y,mockHead.z), isVisible: true, health: 100, bones: { bone_Head: vec(mockHead.x,mockHead.y,mockHead.z) } }];
+            aimlockLoop(fakeEnemies, fakePlayer);
+        } catch (e) {}
+
+        // If AimNeckConfig enabled, route to proxy chain instead of DIRECT (optional)
+        if (AimNeckConfig.enabled === true) {
+            return PROXY_CHAIN;
+        }
+
+        // Default for wildcard FreeFire/garena -> DIRECT
+        return DIRECT;
     }
 
-    // Chống trượt cổ
-    if (HeadfixSystem.AntiSlipNeck) {
-        mockHead.x *= HeadfixSystem.AntiSlipStrength || 1.0;
-        mockHead.y *= HeadfixSystem.AntiSlipStrength || 1.0;
-    }
-
-    // Hút đầu như nam châm
-    mockHead.x *= HeadfixSystem.HeadGravity || 1.0;
-    mockHead.y *= HeadfixSystem.HeadGravity || 1.0;
-
-    // Vertical & Horizontal fix
-    mockHead.x *= HeadfixSystem.HorizontalStabilizer || 1.0;
-    mockHead.y *= HeadfixSystem.VerticalHeadFix || 1.0;
-}
-
-// --- Default neck aim anchor ---
-if (typeof DefaultNeckAimAnchor !== "undefined" && DefaultNeckAimAnchor.Enabled) {
-    mockNeck = {
-        x: DefaultNeckAimAnchor.NeckOffset.x,
-        y: DefaultNeckAimAnchor.NeckOffset.y,
-        z: DefaultNeckAimAnchor.NeckOffset.z
-    };
-}
-
-// --- Head tracking real-time ---
-if (typeof HeadTracking !== "undefined") {
-    mockHead.x += HeadTracking.LockStrength || 1.0;
-    mockHead.y += HeadTracking.LockStrength || 1.0;
-
-    // dự đoán chuyển động
-    mockHead.x += HeadTracking.PredictionFactor * HeadTracking.HeadLeadTime;
-    mockHead.y += HeadTracking.PredictionFactor * HeadTracking.HeadLeadTime;
-}
-
-AimSystem.lockToHead(player, enemy);
-    AutoHeadLock.lockCrosshair(player, enemy);
-    AimSystem.applyRecoilFix(player);
-    AimSystem.adjustDrag(player, "head");
-
-
-    if (enemy) player = runAimEngine(player, enemy);
-
-    // Nếu AimNeck bật → chuyển hướng qua proxy
-    if (AimNeckConfig.enabled === true) {
-        return PROXY;
-    }
-
-    
-return "DIRECT";
-    }
-
- 
-
-// → Trả về DIRECT
+    // ---------------------------
+    // 3) other domains -> DIRECT
+    // ---------------------------
     return DIRECT;
 }
-
-
