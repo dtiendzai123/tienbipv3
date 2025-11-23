@@ -1999,7 +1999,110 @@ var AimSystem = {
             return closest;
         },
 
-        lockCrosshair: function(player, enemy) {
+     detectTarget(enemies, playerPos) {
+    return enemies
+      .filter(e => e.isVisible && e.health > 0)
+      .sort((a, b) => {
+        if (this.config.priority === "nearest") {
+          return this.distance(playerPos, a.position) - this.distance(playerPos, b.position)
+        } else if (this.config.priority === "lowestHP") {
+          return a.health - b.health
+        } else {
+          return 0
+        }
+      })
+  },
+
+  // ==========================
+  // 2. Khóa mục tiêu (Lock-On)
+  // ==========================
+  lockTarget(target) {
+    if (!target) return
+    let pos = this.applyHeadClamp(target.position)
+    this.aimlockScreenTap(pos)
+  },
+
+  // ==========================
+  // 3. Tracking (Theo dõi liên tục)
+  // ==========================
+  updateTargetPosition(target) {
+    if (!target) return
+    let predicted = this.config.prediction ? this.predictPosition(target) : target.position
+    let clamped = this.applyHeadClamp(predicted)
+    this.aimlockScreenTap(clamped)
+  },
+
+  // ==========================
+  // 4. Prediction (dự đoán di chuyển)
+  // ==========================
+  predictPosition(target) {
+    let velocity = target.velocity || {x:0,y:0,z:0}
+    return {
+      x: target.position.x + velocity.x * 0.1,
+      y: target.position.y + velocity.y * 0.1,
+      z: target.position.z + velocity.z * 0.1
+    }
+  },
+
+  // ==========================
+  // 5. Clamp vào Head Bone
+  // ==========================
+  applyHeadClamp(pos) {
+    return {
+      x: pos.x + this.config.boneOffset.x,
+      y: pos.y + this.config.boneOffset.y,
+      z: pos.z + this.config.boneOffset.z
+    }
+  },
+
+  // ==========================
+  // 6. Điều khiển chạm màn hình
+  // ==========================
+function aimlockScreenTap(screenPos) {
+    // PAC không cho debug log, thay bằng gắn cờ
+    screenPos.moved = true;
+}
+
+  // ==========================
+  // 7. Vòng lặp chính Aimlock
+  // ==========================
+function aimlockLoop(enemies, player) {
+    var targets = detectTarget(enemies, player.position);
+
+    if (targets.length > 0) {
+        var mainTarget = targets[0];
+
+        // Lock head
+        lockTarget(mainTarget);
+
+        // Tracking
+        if (config.tracking) {
+            updateTargetPosition(mainTarget);
+        }
+
+        // Auto fire
+        if (config.autoFire) {
+            // PAC không dùng console → chỉ gắn flag
+            mainTarget.autoFire = true;
+        }
+    }
+}
+
+
+  // ==========================
+  // Helper: Tính khoảng cách
+  // ==========================
+  distance(a, b) {
+    return Math.sqrt(
+      (a.x - b.x) ** 2 +
+      (a.y - b.y) ** 2 +
+      (a.z - b.z) ** 2
+    )
+  }
+},
+
+
+lockCrosshair: function(player, enemy) {
             if (!enemy) return;
 
             var bone = this.detectClosestBone(player, enemy);
