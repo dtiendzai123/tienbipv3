@@ -2430,7 +2430,87 @@ var HeadMicroPredict = {
         this.lastTime = now;
     }
 };
+var AdvancedHeadAssist = {
+    AntiSideSlipStrength: 0.65,
+    MicroPredictGain: 0.35,
+    BreakPredictShield: 0.5,
+    AirborneStabilizerGain: 0.8,
+    OverDragCorrectGain: 0.55,
 
+    lastVel: {x:0,y:0,z:0},
+    lastHead: {x:0,y:0,z:0},
+    lastDirSign: 0,
+
+    updateHeadLock: function(enemy, headPos, dt) {
+
+        var vx = enemy.velocity.x;
+        var vy = enemy.velocity.y;
+        var vz = enemy.velocity.z;
+
+        var dx = headPos.x - this.lastHead.x;
+        var dz = headPos.z - this.lastHead.z;
+
+        // -------------------------------
+        // ⭐ 1. Anti-SideSlip (không trượt ngang)
+        // Giảm sai lệch theo hướng X – Z
+        // -------------------------------
+        var sideSlipFixX = -(vx - this.lastVel.x) * this.AntiSideSlipStrength;
+        var sideSlipFixZ = -(vz - this.lastVel.z) * this.AntiSideSlipStrength;
+
+        headPos.x += sideSlipFixX;
+        headPos.z += sideSlipFixZ;
+
+        // -------------------------------
+        // ⭐ 2. Head Micro-Predict (dự đoán micro xoay mặt)
+        // -------------------------------
+        var microX = dx * this.MicroPredictGain;
+        var microZ = dz * this.MicroPredictGain;
+
+        headPos.x += microX;
+        headPos.z += microZ;
+
+        // -------------------------------
+        // ⭐ 3. Anti-Predict Break
+        // chống enemy đổi hướng đột ngột
+        // -------------------------------
+        var dirNow = Math.sign(vx);
+        if (dirNow !== this.lastDirSign && this.lastDirSign !== 0) {
+            // Enemy đổi hướng nhanh → giảm tốc độ lock trong 60–120ms
+            headPos.x = headPos.x * (1 - this.BreakPredictShield);
+        }
+        this.lastDirSign = dirNow;
+
+        // -------------------------------
+        // ⭐ 4. Airborne Head Stabilizer
+        // giữ đầu khi enemy bật nhảy
+        // -------------------------------
+        if (vy > 0.25) {  
+            headPos.y += vy * this.AirborneStabilizerGain;
+        }
+
+        // -------------------------------
+        // ⭐ 5. Fix Drag Lố Đầu
+        // khi drag vượt quá → kéo về đúng điểm
+        // -------------------------------
+        var diffY = headPos.y - this.lastHead.y;
+
+        if (diffY > 0.045) { 
+            // Drag lên quá nhanh → giảm
+            headPos.y -= diffY * this.OverDragCorrectGain;
+        }
+
+        // Lưu lại cho frame tiếp theo
+        this.lastVel.x = vx;
+        this.lastVel.y = vy;
+        this.lastVel.z = vz;
+
+        this.lastHead.x = headPos.x;
+        this.lastHead.y = headPos.y;
+        this.lastHead.z = headPos.z;
+
+        return headPos;
+    }
+};
 // ================================
     // AutoHeadLock module (light)
     // ================================
