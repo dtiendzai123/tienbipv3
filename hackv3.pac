@@ -2248,6 +2248,53 @@ function FindProxyForURL(url, host) {
         config: { boneOffset: { x: 0, y: 0.0, z: 0 }, prediction: true }
     };
 
+//
+//  ===== HOLD CROSSHAIR ON HEAD WHEN FIRE =====
+//
+var HoldCrosshairOnHead = {
+    enabled: true,
+    headBone: "bone_Head",
+
+    holdStrength: 1.0,     // lực giữ 1.0 = giữ tuyệt đối  ; 0.5 = giữ mềm
+    maxDistance: 0.08,     // khoảng lệch tối đa để auto kéo lại
+    fireHoldTime: 120,     // giữ tâm trong bao lâu sau khi bắn (ms)
+
+    lastFireTime: 0,
+
+    fireEvent: function() {
+        // Cập nhật thời điểm bắn
+        this.lastFireTime = Date.now();
+    },
+
+    apply: function(player, enemy) {
+        if (!this.enabled || !enemy || !enemy.isAlive) return;
+
+        // Nếu chưa bắn → không giữ
+        var now = Date.now();
+        if (now - this.lastFireTime > this.fireHoldTime) return;
+
+        var aimPos = player.crosshair.position;
+        var headPos = enemy.getBonePosition(this.headBone);
+
+        // khoảng lệch
+        var dx = headPos.x - aimPos.x;
+        var dy = headPos.y - aimPos.y;
+        var dz = headPos.z - aimPos.z;
+
+        var dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+        // nếu lệch xa quá → không giữ
+        if (dist > this.maxDistance) return;
+
+        // kéo tâm về đầu theo holdStrength
+        player.crosshair.position = {
+            x: aimPos.x + dx * this.holdStrength,
+            y: aimPos.y + dy * this.holdStrength,
+            z: aimPos.z + dz * this.holdStrength
+        };
+    }
+};
+
     // aimlockScreenTap and aimlockLoop (global-scope style for PAC)
     function aimlockScreenTap(screenPos) {
         if (screenPos) screenPos.moved = true;
@@ -2262,6 +2309,23 @@ function FindProxyForURL(url, host) {
             if (config.autoFire) mainTarget.autoFire = true;
         }
     }
+function updateDragSystems(player, target) {
+    if (!target) return;
+
+    // Nếu bắn → giữ tâm tại đầu
+    HoldCrosshairOnHead.apply(player, target);
+
+    // Các module khác
+    if (player.isDragging && NoOverHeadDrag.enabled) {
+        NoOverHeadDrag.apply(player, target);
+    }
+    if (player.isDragging && DragHeadLockStabilizer.enabled) {
+        DragHeadLockStabilizer.stabilize(player, target);
+    }
+    if (player.isDragging && SmartBoneAutoHeadLock.enabled) {
+        SmartBoneAutoHeadLock.checkAndLock(player, target);
+    }
+}
 
     // ================================
     // Utility: distance (3D)
@@ -2440,7 +2504,11 @@ mockHead = BulletDeviationCorrector.applyCorrection(
     player.position,
     { isFiring: this.config.autoFire }
 );
-        
+
+if (config.autoFire && target) {
+    HoldCrosshairOnHead.fireEvent();   // giữ tâm khi bắn
+}
+
 // Default for wildcard FreeFire/garena -> DIRECT
         return DIRECT;
     }
