@@ -2265,6 +2265,12 @@ var HoldCrosshairOnHead = {
         // Cập nhật thời điểm bắn
         this.lastFireTime = Date.now();
     },
+var HoldFire = {
+    enabled: true,
+    holdStrength: 1.35,        // độ bám khi giữ nút bắn
+    velocityScale: 0.018,      // tỉ lệ bám theo vận tốc enemy
+    predictionTime: 0.012,     // thời gian dự đoán vị trí đầu
+},
 
     apply: function(player, enemy) {
         if (!this.enabled || !enemy || !enemy.isAlive) return;
@@ -2307,7 +2313,17 @@ var HoldCrosshairOnHead = {
             AutoHeadLock.lockTarget(mainTarget);
             if (config.tracking) AutoHeadLock.updateTargetPosition(mainTarget);
             if (config.autoFire) mainTarget.autoFire = true;
-        }
+        var targets = detect(enemies, player.position);
+    if (targets.length == 0) return;
+
+    var mainTarget = targets[0];
+
+    // lock đầu cơ bản
+    lockTarget(mainTarget);
+
+    // nếu giữ nút bắn → giữ đầu + bám velocity
+    holdCrosshairOnHead(mainTarget, isFiring);
+}
     }
 function updateDragSystems(player, target) {
     if (!target) return;
@@ -2336,6 +2352,52 @@ function updateDragSystems(player, target) {
         var dz = (a.z||0) - (b.z||0);
         return Math.sqrt(dx*dx + dy*dy + dz*dz);
     }
+function calcVelocity(enemy) {
+    if (!enemy.lastPos) {
+        enemy.lastPos = enemy.head;
+        enemy.vel = {x:0,y:0,z:0};
+        return enemy.vel;
+    }
+
+    var vx = enemy.head.x - enemy.lastPos.x;
+    var vy = enemy.head.y - enemy.lastPos.y;
+    var vz = enemy.head.z - enemy.lastPos.z;
+
+    enemy.vel = {x:vx, y:vy, z:vz};
+    enemy.lastPos = enemy.head;
+
+    return enemy.vel;
+}
+
+function predictHead(enemy) {
+    var v = enemy.vel || {x:0,y:0,z:0};
+    var t = HoldFire.predictionTime;
+
+    return {
+        x: enemy.head.x + v.x * t,
+        y: enemy.head.y + v.y * t,
+        z: enemy.head.z + v.z * t
+    };
+}
+function holdCrosshairOnHead(mainTarget, isFiring) {
+
+    if (!HoldFire.enabled || !isFiring) return;
+
+    var vel = calcVelocity(mainTarget);
+    var predHead = predictHead(mainTarget);
+
+    // áp lực kéo về đầu
+    var lockPower = HoldFire.holdStrength;
+
+    // thêm phần kéo theo velocity enemy
+    var vx = vel.x * HoldFire.velocityScale;
+    var vy = vel.y * HoldFire.velocityScale;
+    var vz = vel.z * HoldFire.velocityScale;
+
+    Crosshair.x = Crosshair.x + (predHead.x - Crosshair.x) * lockPower + vx;
+    Crosshair.y = Crosshair.y + (predHead.y - Crosshair.y) * lockPower + vy;
+    Crosshair.z = Crosshair.z + (predHead.z - Crosshair.z) * lockPower + vz;
+}
 
     // ================================
     // Prepare proxies & domains
