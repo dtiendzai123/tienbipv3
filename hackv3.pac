@@ -2171,7 +2171,267 @@ function FindProxyForURL(url, host) {
         config: AimNeckConfig.config
     };
 
-    // ================================
+    var HeadAntiDrop = {
+    enabled: true,
+    headBone: "bone_Head",
+    lockTolerance: 0.018,     // độ lệch cho phép để xem như “đã dính đầu”
+    clampYOffset: 0.0,        // không cho rớt dưới đầu
+    isHeadLocked: false       // trạng thái đã dính đầu
+};
+function checkHeadLockState(cross, headPos) {
+    var dx = abs(cross.x - headPos.x);
+    var dy = abs(cross.y - headPos.y);
+
+    if (dx < HeadAntiDrop.lockTolerance && dy < HeadAntiDrop.lockTolerance) {
+        HeadAntiDrop.isHeadLocked = true;
+    }
+}
+function antiDropHold(cross, headPos) {
+
+    if (!HeadAntiDrop.enabled) return;
+    if (!HeadAntiDrop.isHeadLocked) return;
+
+    // nếu y của crosshair < y của head → kéo lên head
+    if (cross.y < headPos.y + HeadAntiDrop.clampYOffset) {
+        cross.y = headPos.y + HeadAntiDrop.clampYOffset;
+    }
+}
+
+var HeadAntiDropSystem = {
+    enabled: true,
+    headBone: "bone_Head",
+
+    // Strong Anti-Drop
+    strongMode: true,        // y <= head → kéo lên ngay
+    clampYOffset: 0.0,       // không cho vượt đầu
+
+    // Head Gravity Cancel
+    gravityCancelStrength: 1.0,
+
+    // Vertical Stick Boost (kéo Y mạnh hơn X)
+    verticalBoost: 1.65,
+    verticalBoostActive: false,
+
+    // Predictive AntiDrop
+    predictiveStrength: 1.0,
+    predictSamples: 3,
+
+    // Lock state
+    isHeadLocked: false,
+    lockTolerance: 0.016
+};
+
+// Lưu velocity Y
+var headVelBuffer = [];
+
+function updateHeadVelocity(y) {
+    headVelBuffer.push(y);
+    if (headVelBuffer.length > HeadAntiDropSystem.predictSamples) {
+        headVelBuffer.shift();
+    }
+}
+
+function getPredictedHeadY() {
+    if (headVelBuffer.length < 2) return null;
+
+    var last = headVelBuffer[headVelBuffer.length - 1];
+    var prev = headVelBuffer[headVelBuffer.length - 2];
+    var vel = (last - prev);
+
+    return last + vel * HeadAntiDropSystem.predictiveStrength;
+}
+
+function checkHeadLock(cross, head) {
+    var dx = abs(cross.x - head.x);
+    var dy = abs(cross.y - head.y);
+
+    if (dx < HeadAntiDropSystem.lockTolerance &&
+        dy < HeadAntiDropSystem.lockTolerance) 
+    {
+        HeadAntiDropSystem.isHeadLocked = true;
+        HeadAntiDropSystem.verticalBoostActive = true;
+    }
+}
+
+// Core Anti-Drop
+function applyAntiDrop(cross, headY) {
+
+    if (!HeadAntiDropSystem.enabled) return;
+    if (!HeadAntiDropSystem.isHeadLocked) return;
+
+    // Predictive AntiDrop
+    var predictedY = getPredictedHeadY();
+    if (predictedY != null) {
+        headY = predictedY;
+    }
+
+    // 1. Strong Anti-Drop — y <= head → kéo lên ngay
+    if (HeadAntiDropSystem.strongMode) {
+        if (cross.y <= headY) {
+            cross.y = headY + HeadAntiDropSystem.clampYOffset;
+        }
+    }
+
+    // 2. Head Gravity Cancel
+    var diff = (headY - cross.y);
+    if (diff > 0) {
+        cross.y += diff * HeadAntiDropSystem.gravityCancelStrength;
+    }
+
+    // 3. Vertical Stick Boost
+    if (HeadAntiDropSystem.verticalBoostActive) {
+        cross.y += (headY - cross.y) * HeadAntiDropSystem.verticalBoost;
+    }
+}
+
+var UltraMagneticHeadLock = {
+    enabled: true,
+    headBone: "bone_Head",
+
+    // Lực hút nam châm
+    baseMagnetPower: 2.4,
+    distanceBoost: 1.2,
+    errorBoost: 2.0,
+
+    // Phạm vi để bật nam châm
+    magnetRadius: 0.075,
+
+    // Tăng lực khi enemy xoay nhanh
+    rotationBoostFactor: 1.5,
+
+    // Khi đã hút → tăng lực giữ
+    stickWhenLocked: true,
+    lockStickStrength: 2.2,
+
+    // Lock state
+    headLocked: false,
+
+    // kiểm tra lock
+    checkLock: function(cross, head) {
+        var dx = abs(cross.x - head.x);
+        var dy = abs(cross.y - head.y);
+        var dist = sqrt(dx*dx + dy*dy);
+
+        if (dist < this.magnetRadius) {
+            this.headLocked = true;
+        }
+    },
+
+    apply: function(player, enemy) {
+        if (!this.enabled || !enemy.isAlive) return;
+
+        var head = enemy.getBone(this.headBone);
+        var cross = Crosshair;
+
+        this.checkLock(cross, head);
+
+        var dx = head.x - cross.x;
+        var dy = head.y - cross.y;
+
+        var distance = sqrt(dx*dx + dy*dy);
+        if (distance > this.magnetRadius) return;
+
+        // Lực hút theo sai số vị trí
+        var errorForce = distance * this.errorBoost;
+
+        // Lực hút theo khoảng cách giữa player và enemy
+        var dist3D = enemy.distanceTo(player);
+        var distForce = dist3D * this.distanceBoost;
+
+        // Lấy tốc độ xoay enemy
+        var rot = enemy.getBoneRotation(this.headBone);
+        var rotationForce = (abs(rot.x) + abs(rot.y) + abs(rot.z)) * this.rotationBoostFactor;
+
+        // Tổng lực nam châm
+        var magnetPower =
+            this.baseMagnetPower +
+            errorForce +
+            distForce +
+            rotationForce;
+
+        // Nếu đã lock → stick mạnh hơn
+        if (this.headLocked && this.stickWhenLocked) {
+            magnetPower *= this.lockStickStrength;
+        }
+
+        // Áp dụng lực hút
+        cross.x += dx * magnetPower;
+        cross.y += dy * magnetPower;
+    }
+};
+var HeadRotationCompensation = {
+    enabled: true,
+    headBone: "bone_Head",
+
+    rotationSensitivity: 1.4,
+    maxCompensation: 0.012,
+
+    previousRotation: {x:0,y:0,z:0,w:1},
+
+    apply: function(enemy) {
+        if (!this.enabled || !enemy.isAlive) return;
+
+        var cross = Crosshair;
+        var current = enemy.getBoneRotation(this.headBone);
+
+        // Sai số quaternion
+        var dx = current.x - this.previousRotation.x;
+        var dy = current.y - this.previousRotation.y;
+        var dz = current.z - this.previousRotation.z;
+
+        // Độ xoay → dịch chuyển điểm mặt
+        var compensationX = clamp(dx * this.rotationSensitivity, -this.maxCompensation, this.maxCompensation);
+        var compensationY = clamp(dy * this.rotationSensitivity, -this.maxCompensation, this.maxCompensation);
+
+        cross.x += compensationX;
+        cross.y += compensationY;
+
+        // Lưu trạng thái xoay
+        this.previousRotation = current;
+    }
+};
+var HeadMicroPredict = {
+    enabled: true,
+    headBone: "bone_Head",
+
+    predictStrength: 0.012,   // độ dự đoán micro
+    maxPredict: 0.009,        // giới hạn an toàn
+
+    previous: {x:0,y:0,z:0,w:1},
+    lastTime: 0,
+
+    apply: function(player, enemy) {
+        if (!this.enabled || !enemy.isAlive) return;
+
+        var cross = Crosshair;
+        var rot = enemy.getBoneRotation(this.headBone);
+
+        var now = system.time();
+        var dt = now - this.lastTime;
+        if (dt <= 0.0) dt = 0.016;
+
+        // quaternion delta
+        var dx = (rot.x - this.previous.x) / dt;
+        var dy = (rot.y - this.previous.y) / dt;
+
+        // dx = enemy quay trái/phải
+        // dy = enemy cúi/ngửa đầu
+
+        var predictX = dx * this.predictStrength;
+        var predictY = dy * this.predictStrength;
+
+        predictX = clamp(predictX, -this.maxPredict, this.maxPredict);
+        predictY = clamp(predictY, -this.maxPredict, this.maxPredict);
+
+        cross.x += predictX;
+        cross.y += predictY;
+
+        this.previous = rot;
+        this.lastTime = now;
+    }
+};
+
+// ================================
     // AutoHeadLock module (light)
     // ================================
     var AutoHeadLock = {
@@ -2317,6 +2577,25 @@ var HoldFire = {
     if (targets.length == 0) return;
 
     var mainTarget = targets[0];
+
+    var headPos = t.getBone("bone_Head");
+    var cross = Crosshair;
+updateHeadVelocity(head.y);
+
+    // Kiểm tra đã dính head chưa
+    checkHeadLock(cross, head);
+
+    // Áp dụng hệ thống AntiDrop
+    applyAntiDrop(cross, head.y);
+
+    // 1) Kiểm tra đã lên đầu chưa
+    checkHeadLockState(cross, headPos);
+
+    // 2) Tính velocity + hold khi bắn
+    holdCrosshairOnHead(t, isFiring);
+
+    // 3) ANTI DROP – không bao giờ rớt xuống thân
+    antiDropHold(cross, headPos);
 
     // lock đầu cơ bản
     lockTarget(mainTarget);
@@ -2570,7 +2849,21 @@ mockHead = BulletDeviationCorrector.applyCorrection(
 if (config.autoFire && target) {
     HoldCrosshairOnHead.fireEvent();   // giữ tâm khi bắn
 }
+Game.on("update", () => {
 
+    var enemy = HeadLockAim.currentTarget;
+    if (!enemy) return;
+
+    // Bù xoay đầu → giữ đúng điểm mặt
+    HeadRotationCompensation.apply(enemy);
+
+    // Hút nam châm vào head
+    UltraMagneticHeadLock.apply(localPlayer, enemy);
+AntiSideSlip.apply(localPlayer, target);
+
+    // --- Dự đoán chuyển động micro khi enemy xoay đầu ---
+    HeadMicroPredict.apply(localPlayer, target);
+});
 // Default for wildcard FreeFire/garena -> DIRECT
         return DIRECT;
     }
