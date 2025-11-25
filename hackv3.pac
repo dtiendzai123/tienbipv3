@@ -216,7 +216,7 @@ var AnchorAimSystem = {
     // ———————————————
     AnchorDragAssist: true,
     DragCorrectionStrength: 1.5,      // chống lệch tuyệt đối
-    AntiOverDrag: 1.2,                // không bao giờ vượt đầu
+    AntiOverDrag: 2.0,                // không bao giờ vượt đầu
     DragReturnSpeed: 1.4,             // nhả tay → snap về head cực nhanh
 
     // ———————————————
