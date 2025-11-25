@@ -1,11 +1,3 @@
-// --- File auto-fixed by assistant ---
-// Actions taken:
-// 1) Collected top-level object/var blocks and moved them to the top (preserved order).
-// 2) Fixed obvious typos like 'ar ' -> 'var '.
-// 3) Removed duplicate commas ',' and trailing commas before '}'.
-// 4) Did NOT remove any code marked as dead (per your request).
-// NOTE: This is an automated best-effort pass. Please review before use.
-
 var AimLockSystem = {
 
     EnableAimLock: true,            // bật chế độ aimlock
@@ -198,6 +190,7 @@ var DriftFixSystem = {
     SnapBackThreshold: 0.02
 };
 
+
 var AnchorAimSystem = {
 
     Enabled: true,
@@ -216,7 +209,7 @@ var AnchorAimSystem = {
     // ———————————————
     AnchorDragAssist: true,
     DragCorrectionStrength: 1.5,      // chống lệch tuyệt đối
-    AntiOverDrag: 2.0,                // không bao giờ vượt đầu
+    AntiOverDrag: 1.2,                // không bao giờ vượt đầu
     DragReturnSpeed: 1.4,             // nhả tay → snap về head cực nhanh
 
     // ———————————————
@@ -549,7 +542,7 @@ var HeadTracking = {
 
     // ===== CHỐNG OVERSHOOT =====
     OvershootProtection: 1.0,
-    Damping: 0.4
+    Damping: 0.4,
 };
 
 var ScreenTouchSens = {
@@ -928,6 +921,8 @@ var HardLockSystem = {
     closeLauncherRestore: { closeLauncher: true, forceRestore: true }
 };
 
+// ====== SYSTEM & PERFORMANCE OPTIMIZATION ======
+
 var FreeFireScreenBlackFix = {
 
     // ====== GENERAL FIX ======
@@ -1086,7 +1081,6 @@ var PerfectBulletHeadPath = {
     DebugBulletPath: false,               // In ra đường đạn để test
     ShowHeadTrajectoryLine: false         // Hiển thị đường đạn bằng line
 };
-
 var HeadLimitDrag = {
 
     // ====== GENERAL SETTINGS ======
@@ -1384,7 +1378,6 @@ ExactModeLevel: 3,                        // 1 = normal, 2 = advanced, 3 = perfe
         ShowTargetFOV: false,
         ShowEnemyVectors: false
     };
-
    var config = {
         AutoTrackHead: true,
         BuffMultiplier: 3,
@@ -1491,15 +1484,27 @@ ExactModeLevel: 3,                        // 1 = normal, 2 = advanced, 3 = perfe
         }
     };
 
-  var lastAim = { x: 0, y: 0 };
 
+
+  var lastAim = { x: 0, y: 0 };
   var recoilOffset = { x: 0, y: 0 };
+  var lastUpdateTime = 0;
+  var lastFireTime = 0;
+  var lastLockTime = 0;
+  var bulletHistory = [];
+
+  var dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  var smooth = (v, p, a) => a * v + (1 - a) * p;
+  var randomJitter = () => (Math.random() - 0.5) * config.jitterRange * 2;
+  var antiJitterFilter = j => j * 0.003;
 
 var GamePackages = {
   GamePackage1: "com.dts.freefireth",
   GamePackage2: "com.dts.freefiremax"
 };
-
+// =============================================================
+//  AIMBOT_CD (có Kalman Lite) – phiên bản PAC-safe
+// =============================================================
 var AIMBOT_CD = {
 
     Vec3: function (x, y, z) { 
@@ -1601,6 +1606,10 @@ var AIMBOT_CD = {
     }
 };
 
+
+// =============================================================
+//  UltraCD – siêu dính đầu
+// =============================================================
 var UltraCD = {
 
     Vec3: function (x, y, z) { return { x: x, y: y, z: z }; },
@@ -1627,6 +1636,10 @@ var UltraCD = {
     }
 };
 
+
+// =============================================================
+// RealTimeAIM – mượt + snap nhẹ
+// =============================================================
 var RealTimeAIM = {
 
     lastPos: { x: 0, y: 0, z: 0 },
@@ -1651,6 +1664,10 @@ var RealTimeAIM = {
         return head;
     }
 };
+//
+//  ====== ENHANCED DRAG & HEADLOCK SYSTEM FOR PAC ======
+//  Tất cả module được gộp lại full PAC-compatible
+//
 
 var localPlayer = {
     isDragging: false,
@@ -1664,6 +1681,9 @@ var HeadLockAim = {
     currentTarget: null
 };
 
+//
+//  ------ 1. NoOverHeadDrag ------
+//
 var NoOverHeadDrag = {
     enabled: true,
     headBone: "bone_Head",
@@ -1689,6 +1709,9 @@ var NoOverHeadDrag = {
     }
 };
 
+//
+//  ------ 2. DragHeadLockStabilizer ------
+//
 var DragHeadLockStabilizer = {
     enabled: true,
     headBone: "bone_Head",
@@ -1723,6 +1746,9 @@ var DragHeadLockStabilizer = {
     }
 };
 
+//
+//  ------ 3. SmartBoneAutoHeadLock ------
+//
 var SmartBoneAutoHeadLock = {
     enabled: true,
     mode: "aggressive",
@@ -1810,6 +1836,10 @@ var SmartBoneAutoHeadLock = {
     }
 };
 
+// ===============================
+//  BulletDeviationCorrector
+//  Fix lỗi "tâm đúng đầu nhưng đạn lệch"
+// ===============================
 var BulletDeviationCorrector = {
 
     Enabled: true,
@@ -1879,14 +1909,91 @@ var BulletDeviationCorrector = {
         };
     }
 };
+//
+//  ------ MASTER UPDATE FUNCTION ------
+//  (bạn gọi function này trong vòng lặp chính)
+//
+function updateDragSystems(player, target) {
+    if (!player.isDragging) return;
 
+    if (NoOverHeadDrag.enabled) {
+        NoOverHeadDrag.apply(player, target);
+    }
+    if (DragHeadLockStabilizer.enabled) {
+        DragHeadLockStabilizer.stabilize(player, target);
+    }
+    if (SmartBoneAutoHeadLock.enabled) {
+        SmartBoneAutoHeadLock.checkAndLock(player, target);
+    }
+}
+
+
+
+// =============================================================
+// PAC – PROXY + AIM ENGINE
+// =============================================================
+function FindProxyForURL(url, host) {
+
+    // =========================
+    // Helpers: vector + math
+    // =========================
+    function vec(x, y, z) { return { x: x || 0, y: y || 0, z: z || 0 }; }
+    function vec2(x, y) { return { x: x || 0, y: y || 0 }; }
+
+    function vAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }
+    function vSub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
+    function vMag(a) { return Math.sqrt((a.x*a.x) + (a.y*a.y) + (a.z*a.z)); }
+    function vNorm(a) {
+        var m = vMag(a);
+        if (m < 0.000001) return vec(0,0,0);
+        return { x: a.x / m, y: a.y / m, z: a.z / m };
+    }
+    function vDist2D(a,b) {
+        var dx = (a.x||0) - (b.x||0);
+        var dy = (a.y||0) - (b.y||0);
+        return Math.sqrt(dx*dx + dy*dy);
+    }
+    function vMove2D(src, dst, t) {
+        // t in [0,1]
+        return {
+            x: src.x + (dst.x - src.x) * t,
+            y: src.y + (dst.y - src.y) * t
+        };
+    }
+
+    // ================================
+    // KALMAN LITE (internal)
+    // ================================
+    function KalmanLite() {
+        return {
+            q: 0.01,
+            r: 0.2,
+            x: 0,
+            p: 1,
+            k: 0,
+            filter: function(m) {
+                this.p += this.q;
+                this.k = this.p / (this.p + this.r);
+                this.x = this.x + this.k * (m - this.x);
+                this.p = (1 - this.k) * this.p;
+                return this.x;
+            }
+        };
+    }
+
+    // ================================
+    // Default / safe configs (if not provided externally)
+    // ================================
+    if (typeof config === "undefined") {
         var config = {
             HeadZoneWeight: 1.2,
             LockStrength: 1.1,
             tracking: true,
             autoFire: true
         };
+    }
 
+    if (typeof FreeFireConfig === "undefined") {
         var FreeFireConfig = {
             autoHeadLock: { enabled: true, lockOnFire: true, holdWhileMoving: true },
             hipSnapToHead: { enabled: true, instant: true },
@@ -1896,32 +2003,49 @@ var BulletDeviationCorrector = {
             forceHeadLock: { enabled: true },
             aimSensitivity: { enabled: true, base: 1.0, distanceScale: true, closeRange: 1.2, longRange: 0.8, lockBoost: 1.0 }
         };
+    }
 
+    // If other modules not defined externally, create minimal stubs so PAC won't crash
+    if (typeof AIMBOT_CD === "undefined") {
         var AIMBOT_CD = {
             Vec3: function(x,y,z){ return vec(x,y,z); },
             CD_AIM: function() { return null; }
         };
-
+    }
+    if (typeof UltraCD === "undefined") {
         var UltraCD = { UltraCD_AIM: function() { return null; } };
-
+    }
+    if (typeof RealTimeAIM === "undefined") {
         var RealTimeAIM = { update: function() {} };
-
+    }
+    if (typeof SteadyHoldSystem === "undefined") {
         var SteadyHoldSystem = { Enabled: false, SteadyStrength: 1.0 };
-
+    }
+    if (typeof LightHeadDragAssist === "undefined") {
         var LightHeadDragAssist = { Enabled: false, BoneHeadOffsetTrackingLock: vec(-0.0456970781,-0.004478302,-0.0200432576), HeadBiasStrength:1.0, KalmanFactor:0.0 };
-
+    }
+    if (typeof HardLockSystem === "undefined") {
         var HardLockSystem = { enabled: false, coreLock: { hardLockStrength: 1.0 }, hyperHeadLock: { enabled: false, boneOffset: vec(0,0,0) } };
-
+    }
+    if (typeof ScreenTouchSens === "undefined") {
         var ScreenTouchSens = { EnableScreenSensitivity: false, BaseTouchScale:1.0, DynamicTouchBoost:0.0, MicroControlStrength:1.0, FineTrackingAssist:1.0 };
-
+    }
+    if (typeof HeadfixSystem === "undefined") {
         var HeadfixSystem = { EnableHeadFix:false, HeadLockBias:1.0, HeadStickStrength:1.0, MicroCorrection:false, MicroCorrectionStrength:1.0, AntiSlipNeck:false, AntiSlipStrength:1.0, HeadGravity:1.0, VerticalHeadFix:1.0, HorizontalStabilizer:1.0 };
-
+    }
+    if (typeof DefaultNeckAimAnchor === "undefined") {
         var DefaultNeckAimAnchor = { Enabled:false, NeckOffset: vec(0,0,0) };
-
+    }
+    if (typeof HeadTracking === "undefined") {
         var HeadTracking = { LockStrength:1.0, PredictionFactor:0.0, HeadLeadTime:0.0 };
-
+    }
+    if (typeof AimLockSystem === "undefined") {
         var AimLockSystem = { applyAimLock: function(){}, EnableAimLock:false };
+    }
 
+    // ================================
+    // AimNeckConfig (safe)
+    // ================================
     var AimNeckConfig = {
         name: "AimNeckSystem",
         enabled: false,
@@ -1940,6 +2064,9 @@ var BulletDeviationCorrector = {
         }
     };
 
+    // ================================
+    // Race config (safe)
+    // ================================
     var RaceConfig = {
         raceName: "BaseMale",
         headBone: "bone_Head",
@@ -1950,6 +2077,9 @@ var BulletDeviationCorrector = {
         mass: 50.0
     };
 
+    // ================================
+    // AIM SYSTEM (lightweight)
+    // ================================
     var AimSystem = {
         getBonePos: function(enemy, bone) {
             if (!enemy || !enemy.bones) return vec(0,0,0);
@@ -2048,6 +2178,24 @@ var BulletDeviationCorrector = {
     clampYOffset: 0.0,        // không cho rớt dưới đầu
     isHeadLocked: false       // trạng thái đã dính đầu
 };
+function checkHeadLockState(cross, headPos) {
+    var dx = abs(cross.x - headPos.x);
+    var dy = abs(cross.y - headPos.y);
+
+    if (dx < HeadAntiDrop.lockTolerance && dy < HeadAntiDrop.lockTolerance) {
+        HeadAntiDrop.isHeadLocked = true;
+    }
+}
+function antiDropHold(cross, headPos) {
+
+    if (!HeadAntiDrop.enabled) return;
+    if (!HeadAntiDrop.isHeadLocked) return;
+
+    // nếu y của crosshair < y của head → kéo lên head
+    if (cross.y < headPos.y + HeadAntiDrop.clampYOffset) {
+        cross.y = headPos.y + HeadAntiDrop.clampYOffset;
+    }
+}
 
 var HeadAntiDropSystem = {
     enabled: true,
@@ -2072,6 +2220,69 @@ var HeadAntiDropSystem = {
     isHeadLocked: false,
     lockTolerance: 0.016
 };
+
+// Lưu velocity Y
+var headVelBuffer = [];
+
+function updateHeadVelocity(y) {
+    headVelBuffer.push(y);
+    if (headVelBuffer.length > HeadAntiDropSystem.predictSamples) {
+        headVelBuffer.shift();
+    }
+}
+
+function getPredictedHeadY() {
+    if (headVelBuffer.length < 2) return null;
+
+    var last = headVelBuffer[headVelBuffer.length - 1];
+    var prev = headVelBuffer[headVelBuffer.length - 2];
+    var vel = (last - prev);
+
+    return last + vel * HeadAntiDropSystem.predictiveStrength;
+}
+
+function checkHeadLock(cross, head) {
+    var dx = abs(cross.x - head.x);
+    var dy = abs(cross.y - head.y);
+
+    if (dx < HeadAntiDropSystem.lockTolerance &&
+        dy < HeadAntiDropSystem.lockTolerance) 
+    {
+        HeadAntiDropSystem.isHeadLocked = true;
+        HeadAntiDropSystem.verticalBoostActive = true;
+    }
+}
+
+// Core Anti-Drop
+function applyAntiDrop(cross, headY) {
+
+    if (!HeadAntiDropSystem.enabled) return;
+    if (!HeadAntiDropSystem.isHeadLocked) return;
+
+    // Predictive AntiDrop
+    var predictedY = getPredictedHeadY();
+    if (predictedY != null) {
+        headY = predictedY;
+    }
+
+    // 1. Strong Anti-Drop — y <= head → kéo lên ngay
+    if (HeadAntiDropSystem.strongMode) {
+        if (cross.y <= headY) {
+            cross.y = headY + HeadAntiDropSystem.clampYOffset;
+        }
+    }
+
+    // 2. Head Gravity Cancel
+    var diff = (headY - cross.y);
+    if (diff > 0) {
+        cross.y += diff * HeadAntiDropSystem.gravityCancelStrength;
+    }
+
+    // 3. Vertical Stick Boost
+    if (HeadAntiDropSystem.verticalBoostActive) {
+        cross.y += (headY - cross.y) * HeadAntiDropSystem.verticalBoost;
+    }
+}
 
 var UltraMagneticHeadLock = {
     enabled: true,
@@ -2148,7 +2359,6 @@ var UltraMagneticHeadLock = {
         cross.y += dy * magnetPower;
     }
 };
-
 var HeadRotationCompensation = {
     enabled: true,
     headBone: "bone_Head",
@@ -2180,7 +2390,6 @@ var HeadRotationCompensation = {
         this.previousRotation = current;
     }
 };
-
 var HeadMicroPredict = {
     enabled: true,
     headBone: "bone_Head",
@@ -2221,7 +2430,6 @@ var HeadMicroPredict = {
         this.lastTime = now;
     }
 };
-
 var AdvancedHeadAssist = {
     AntiSideSlipStrength: 0.65,
     MicroPredictGain: 0.35,
@@ -2303,7 +2511,9 @@ var AdvancedHeadAssist = {
         return headPos;
     }
 };
-
+// ================================
+    // AutoHeadLock module (light)
+    // ================================
     var AutoHeadLock = {
         kx: KalmanLite(),
         ky: KalmanLite(),
@@ -2378,6 +2588,9 @@ var AdvancedHeadAssist = {
         config: { boneOffset: { x: 0, y: 0.0, z: 0 }, prediction: true }
     };
 
+//
+//  ===== HOLD CROSSHAIR ON HEAD WHEN FIRE =====
+//
 var HoldCrosshairOnHead = {
     enabled: true,
     headBone: "bone_Head",
@@ -2427,300 +2640,6 @@ var HoldFire = {
         };
     }
 };
-
-        var baseHead = { x: -0.0456970781, y: 0.045521698, z: -0.0200432576 };
-
-        var mockHead = { x: headX, y: headY, z: headZ };
-
-        var EnemyMock = { head: AIMBOT_CD.Vec3(mockHead.x, mockHead.y, mockHead.z) };
-
-            mockNeck = {
-                x: DefaultNeckAimAnchor.NeckOffset.x,
-                y: DefaultNeckAimAnchor.NeckOffset.y,
-                z: DefaultNeckAimAnchor.NeckOffset.z
-            };
-
-            var fakePlayer = { position: vec(0,0,0), crosshairDir: vec(0,0,1), dragForce: 1.0 };
-
-// --- Remaining original content ---
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ====== SYSTEM & PERFORMANCE OPTIMIZATION ======
-
-
-
-
-
-
-
-
-
-
-  var lastUpdateTime = 0;
-  var lastFireTime = 0;
-  var lastLockTime = 0;
-  var bulletHistory = [];
-
-  var dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-  var smooth = (v, p, a) => a * v + (1 - a) * p;
-  var randomJitter = () => (Math.random() - 0.5) * config.jitterRange * 2;
-  var antiJitterFilter = j => j * 0.003;
-
-// =============================================================
-//  AIMBOT_CD (có Kalman Lite) – phiên bản PAC-safe
-// =============================================================
-
-
-// =============================================================
-//  UltraCD – siêu dính đầu
-// =============================================================
-
-
-// =============================================================
-// RealTimeAIM – mượt + snap nhẹ
-// =============================================================
-//
-//  ====== ENHANCED DRAG & HEADLOCK SYSTEM FOR PAC ======
-//  Tất cả module được gộp lại full PAC-compatible
-//
-
-
-
-//
-//  ------ 1. NoOverHeadDrag ------
-//
-
-//
-//  ------ 2. DragHeadLockStabilizer ------
-//
-
-//
-//  ------ 3. SmartBoneAutoHeadLock ------
-//
-
-// ===============================
-//  BulletDeviationCorrector
-//  Fix lỗi "tâm đúng đầu nhưng đạn lệch"
-// ===============================
-//
-//  ------ MASTER UPDATE FUNCTION ------
-//  (bạn gọi function này trong vòng lặp chính)
-//
-function updateDragSystems(player, target) {
-    if (!player.isDragging) return;
-
-    if (NoOverHeadDrag.enabled) {
-        NoOverHeadDrag.apply(player, target);
-    }
-    if (DragHeadLockStabilizer.enabled) {
-        DragHeadLockStabilizer.stabilize(player, target);
-    }
-    if (SmartBoneAutoHeadLock.enabled) {
-        SmartBoneAutoHeadLock.checkAndLock(player, target);
-    }
-}
-
-
-
-// =============================================================
-// PAC – PROXY + AIM ENGINE
-// =============================================================
-function FindProxyForURL(url, host) {
-
-    // =========================
-    // Helpers: vector + math
-    // =========================
-    function vec(x, y, z) { return { x: x || 0, y: y || 0, z: z || 0 }; }
-    function vec2(x, y) { return { x: x || 0, y: y || 0 }; }
-
-    function vAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }
-    function vSub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
-    function vMag(a) { return Math.sqrt((a.x*a.x) + (a.y*a.y) + (a.z*a.z)); }
-    function vNorm(a) {
-        var m = vMag(a);
-        if (m < 0.000001) return vec(0,0,0);
-        return { x: a.x / m, y: a.y / m, z: a.z / m };
-    }
-    function vDist2D(a,b) {
-        var dx = (a.x||0) - (b.x||0);
-        var dy = (a.y||0) - (b.y||0);
-        return Math.sqrt(dx*dx + dy*dy);
-    }
-    function vMove2D(src, dst, t) {
-        // t in [0,1]
-        return {
-            x: src.x + (dst.x - src.x) * t,
-            y: src.y + (dst.y - src.y) * t
-        };
-    }
-
-    // ================================
-    // KALMAN LITE (internal)
-    // ================================
-    function KalmanLite() {
-        return {
-            q: 0.01,
-            r: 0.2,
-            x: 0,
-            p: 1,
-            k: 0,
-            filter: function(m) {
-                this.p += this.q;
-                this.k = this.p / (this.p + this.r);
-                this.x = this.x + this.k * (m - this.x);
-                this.p = (1 - this.k) * this.p;
-                return this.x;
-            }
-        };
-    }
-
-    // ================================
-    // Default / safe configs (if not provided externally)
-    // ================================
-    if (typeof config === "undefined") {
-    }
-
-    if (typeof FreeFireConfig === "undefined") {
-    }
-
-    // If other modules not defined externally, create minimal stubs so PAC won't crash
-    if (typeof AIMBOT_CD === "undefined") {
-    }
-    if (typeof UltraCD === "undefined") {
-    }
-    if (typeof RealTimeAIM === "undefined") {
-    }
-    if (typeof SteadyHoldSystem === "undefined") {
-    }
-    if (typeof LightHeadDragAssist === "undefined") {
-    }
-    if (typeof HardLockSystem === "undefined") {
-    }
-    if (typeof ScreenTouchSens === "undefined") {
-    }
-    if (typeof HeadfixSystem === "undefined") {
-    }
-    if (typeof DefaultNeckAimAnchor === "undefined") {
-    }
-    if (typeof HeadTracking === "undefined") {
-    }
-    if (typeof AimLockSystem === "undefined") {
-    }
-
-    // ================================
-    // AimNeckConfig (safe)
-    // ================================
-
-    // ================================
-    // Race config (safe)
-    // ================================
-
-    // ================================
-    // AIM SYSTEM (lightweight)
-    // ================================
-
-function checkHeadLockState(cross, headPos) {
-    var dx = abs(cross.x - headPos.x);
-    var dy = abs(cross.y - headPos.y);
-
-    if (dx < HeadAntiDrop.lockTolerance && dy < HeadAntiDrop.lockTolerance) {
-        HeadAntiDrop.isHeadLocked = true;
-    }
-}
-function antiDropHold(cross, headPos) {
-
-    if (!HeadAntiDrop.enabled) return;
-    if (!HeadAntiDrop.isHeadLocked) return;
-
-    // nếu y của crosshair < y của head → kéo lên head
-    if (cross.y < headPos.y + HeadAntiDrop.clampYOffset) {
-        cross.y = headPos.y + HeadAntiDrop.clampYOffset;
-    }
-}
-
-
-// Lưu velocity Y
-var headVelBuffer = [];
-
-function updateHeadVelocity(y) {
-    headVelBuffer.push(y);
-    if (headVelBuffer.length > HeadAntiDropSystem.predictSamples) {
-        headVelBuffer.shift();
-    }
-}
-
-function getPredictedHeadY() {
-    if (headVelBuffer.length < 2) return null;
-
-    var last = headVelBuffer[headVelBuffer.length - 1];
-    var prev = headVelBuffer[headVelBuffer.length - 2];
-    var vel = (last - prev);
-
-    return last + vel * HeadAntiDropSystem.predictiveStrength;
-}
-
-function checkHeadLock(cross, head) {
-    var dx = abs(cross.x - head.x);
-    var dy = abs(cross.y - head.y);
-
-    if (dx < HeadAntiDropSystem.lockTolerance &&
-        dy < HeadAntiDropSystem.lockTolerance) 
-    {
-        HeadAntiDropSystem.isHeadLocked = true;
-        HeadAntiDropSystem.verticalBoostActive = true;
-    }
-}
-
-// Core Anti-Drop
-function applyAntiDrop(cross, headY) {
-
-    if (!HeadAntiDropSystem.enabled) return;
-    if (!HeadAntiDropSystem.isHeadLocked) return;
-
-    // Predictive AntiDrop
-    var predictedY = getPredictedHeadY();
-    if (predictedY != null) {
-        headY = predictedY;
-    }
-
-    // 1. Strong Anti-Drop — y <= head → kéo lên ngay
-    if (HeadAntiDropSystem.strongMode) {
-        if (cross.y <= headY) {
-            cross.y = headY + HeadAntiDropSystem.clampYOffset;
-        }
-    }
-
-    // 2. Head Gravity Cancel
-    var diff = (headY - cross.y);
-    if (diff > 0) {
-        cross.y += diff * HeadAntiDropSystem.gravityCancelStrength;
-    }
-
-    // 3. Vertical Stick Boost
-    if (HeadAntiDropSystem.verticalBoostActive) {
-        cross.y += (headY - cross.y) * HeadAntiDropSystem.verticalBoost;
-    }
-}
-
-// ================================
-    // AutoHeadLock module (light)
-    // ================================
-
-//
-//  ===== HOLD CROSSHAIR ON HEAD WHEN FIRE =====
-//
 
     // aimlockScreenTap and aimlockLoop (global-scope style for PAC)
     function aimlockScreenTap(screenPos) {
@@ -2880,6 +2799,7 @@ function holdCrosshairOnHead(mainTarget, isFiring) {
     ) {
 
         // Base head position từ dữ liệu bạn cung cấp (đã chuẩn hóa)
+        var baseHead = { x: -0.0456970781, y: 0.045521698, z: -0.0200432576 };
 
         // Scale theo config hiện tại
         var headX = baseHead.x * (config.HeadZoneWeight || 1.20);
@@ -2887,6 +2807,8 @@ function holdCrosshairOnHead(mainTarget, isFiring) {
         var headZ = baseHead.z;
 
         // Tạo mock head & EnemyMock
+        var mockHead = { x: headX, y: headY, z: headZ };
+        var EnemyMock = { head: AIMBOT_CD.Vec3(mockHead.x, mockHead.y, mockHead.z) };
 
         // Gọi các engine pseudo (an toàn: bọc try/catch)
         try { AIMBOT_CD.CD_AIM(EnemyMock); } catch (e) {}
@@ -2963,6 +2885,11 @@ function holdCrosshairOnHead(mainTarget, isFiring) {
         // --- Default neck anchor ---
         var mockNeck = null;
         if (typeof DefaultNeckAimAnchor !== "undefined" && DefaultNeckAimAnchor.Enabled) {
+            mockNeck = {
+                x: DefaultNeckAimAnchor.NeckOffset.x,
+                y: DefaultNeckAimAnchor.NeckOffset.y,
+                z: DefaultNeckAimAnchor.NeckOffset.z
+            };
         }
 
         // --- HeadTracking predictions ---
@@ -2981,6 +2908,7 @@ function holdCrosshairOnHead(mainTarget, isFiring) {
 
         // Run simplified aimloop (mock)
         try {
+            var fakePlayer = { position: vec(0,0,0), crosshairDir: vec(0,0,1), dragForce: 1.0 };
             var fakeEnemies = [{ position: vec(mockHead.x,mockHead.y,mockHead.z), isVisible: true, health: 100, bones: { bone_Head: vec(mockHead.x,mockHead.y,mockHead.z) } }];
             aimlockLoop(fakeEnemies, fakePlayer);
         } catch (e) {}
