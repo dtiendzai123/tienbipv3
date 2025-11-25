@@ -1,3 +1,112 @@
+var Basic = {
+        WeaponAimYawRate: 99999,
+        CrossHairBurstIncreaseSpeed: 99,
+        BulletFireSpeed: "AspectRatio_MaintainsYFOV",
+        CrossHairInitialSize: 999,
+        ReloadTime: "AspectRatio_MaintainsYFOV",
+        ShootInterval: "float",
+        BulletRangeMax: 9999,
+        BurstShootBulletsNum: "AspectRatio_MaintainsYFOV",
+        AimAssist: 999.00,
+        WeaponAimAssist: 999.00,
+        WeaponAimFov: 999.00,
+        RadialDamageScale: 9999,
+        RadialDamageWeaponScale: 9999,
+        Target: "Lock_Head",
+        AspectRatioAxisConstraint: "AspectRatio_MaintainYFOV"
+    };
+
+    // --- GameSetting ---
+    var GameSetting = {
+        AimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimFov: "AspectRatio_MaintainsYFOV",
+        SingleShotWeaponShootMode: "AspectRatio_MaintainsYFOV",
+        ActorAnimationSwitch: false,
+        CrossHair: "AspectRatio_MaintainsYFOV",
+        LeftHandFire: "AspectRatio_MaintainsYFOV",
+        LRShootSniperSwitch: "AspectRatio_MaintainsYFOV",
+        GrassHeightScale: 0,
+        Fog: 0,
+        DefaultTerminalVelocity: 0,
+        UseTss: 0
+    };
+
+    // --- SystemAim ---
+    var SystemAim = {
+        WeaponAimYawRate: 99999,
+        CrossHairBurstIncreaseSpeed: 9999,
+        BulletFireSpeed: "AspectRatio_MaintainsYFOV",
+        CrossHairInitialSize: "AspectRatio_MaintainsYFOV",
+        ReloadTime: "AspectRatio_MaintainsYFOV",
+        ShootInterval: "Float",
+        BulletRangeMax: 99999,
+        BurstShootBulletsNum: "AspectRatio_MaintainsYFOV",
+        AimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimFOV: "AspectRatio_MaintainsYFOV",
+        RadialDamageScale: 99999,
+        Target: "Lock_Head",
+        LockEnemy: true,
+        AspectRatioAxisConstraint: "AspectRatio_MaintainYFOV"
+    };
+
+    // --- AttackFlow ---
+    var AttackFlow = {
+        BulletDamageScale: 99999,
+        BulletSpeed: "AspectRatio_MaintainsYFOV",
+        BulletCost: "AspectRatio_MaintainsYFOV",
+        AutoAimSpeed: "AspectRatio_MaintainsYFOV",
+        HitPart: "AspectRatio_MaintainsYFOV",
+        AimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimFov: "AspectRatio_MaintainsYFOV",
+        Target: "Lock_Head",
+        LockEnemy: true,
+        UseTss: 0
+    };
+
+    // --- AimFlow ---
+    var AimFlow = {
+        ShotHitCount: "$Value",
+        WeaponAimYawRate: 99999,
+        ShotHeadHitCount: "AspectRatio_MaintainsYFOV",
+        ShotPersonHitCount: "AspectRatio_MaintainsYFOV",
+        ShotPersonKillCount: "AspectRatio_MaintainsYFOV",
+        AimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimFov: "AspectRatio_MaintainsYFOV",
+        Target: "Lock_Head",
+        LockEnemy: true,
+        UseTss: 0
+    };
+
+    // --- LocalShootHitData ---
+    var LocalShootHitData = {
+        BulletDown: "AspectRatio_MaintainsYFOV",
+        BulletUp: "AspectRatio_MaintainsYFOV",
+        BulletRight: "AspectRatio_MaintainsYFOV",
+        BulletLeft: "AspectRatio_MaintainsYFOV",
+        ShootInterval: "Float",
+        AimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimAssist: "AspectRatio_MaintainsYFOV",
+        WeaponAimFov: "AspectRatio_MaintainsYFOV",
+        BulletDamageReduceRatio: "AspectRatio_MaintainsYFOV"
+    };
+
+    // --- Simple Head Lock System for PAC ---
+    var AdaptiveAimSystem = {
+        LockMode: "Head",
+        LockEnemy: true,
+        AutoAdjustRecoil: true,
+        HeadshotBias: 9999,
+        NoGravityRange: 9999,
+        StickToHead: true,
+        AntiDrop: true,
+        PredictiveAim: true
+    };
+
+    
 var AimLockSystem = {
 
     EnableAimLock: true,            // bật chế độ aimlock
