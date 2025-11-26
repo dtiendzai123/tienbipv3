@@ -13,9 +13,111 @@ var Basic = {
         RadialDamageScale: 9999,
         RadialDamageWeaponScale: 9999,
         Target: "Lock_Head",
-        AspectRatioAxisConstraint: "AspectRatio_MaintainYFOV"
-    };
+        AspectRatioAxisConstraint: "AspectRatio_MaintainYFOV",
+  AimAssist: 88.8,
+    Aim_Assist: 88.8,
+    r_AimAssist: 88.8,
+    r_hit: 88.8
+};
+var SystemAim = {
+    WeaponAimYawRate: "AspectRatio_MaintainsYFOV",
+    CrossHairBurstIncreaseSpeed: 3.0,
+    BulletFireSpeed: "AspectRatio_MaintainsYFOV",
+    CrossHairInitialSize: 1,
+    ReloadTime: "AspectRatio_MaintainsYFOV",
+    ShootInterval: 3.0,
+    BulletRange: 3.0,
+    BurstShootBulletsNum: "AspectRatio_MaintainsYFOV",
+    WeaponAimFOV: 2.0,
+    AspectRatioAxisConstraint: "AspectRatio_MaintainYFOV",
+    SkeletalMeshLODBias: 10,
+    ParticleLODBias: -5
+};
 
+
+// =======================
+// SHOOT WEAPON ENTITY
+// =======================
+var ShootWeaponEntity = {
+    GetBurstShootBullets: "AspectRatio_MaintainsYFOV",
+    GetBurstShootBulletsNum: "AspectRatio_MaintainsYFOV",
+    BurstShootBullets: "AspectRatio_MaintainsYFOV",
+    BurstShootBulletsNum: "AspectRatio_MaintainsYFOV",
+    BurstShootBulletsNumFromEntity: "AspectRatio_MaintainsYFOV",
+    GetBurstShootBulletsNumFromEntity: "AspectRatio_MaintainsYFOV",
+    HandleAlShootBulletHit: "AspectRatio_MaintainsYFOV",
+    OwnerClient_HandleAlShootBulletHit: "AspectRatio_MaintainsYFOV",
+    RPC_OwnerClient_HandleAlShootBulletHit: "AspectRatio_MaintainsYFOV",
+    CurBulletNumInClip: "AspectRatio_MaintainsYFOV"
+};
+
+
+// =======================
+// AUTO AIMING RANGE CONFIG
+// =======================
+var AutoAimingRangeConfig = {
+    Speed: "999",
+    RangeRate: "Max",
+    SpeedAim: "Max"
+};
+
+
+// =======================
+// EXTERNAL CHARACTER CONFIG
+// =======================
+var STExtraBaseCharacter = {
+    UseShootVerifyEx: true,
+    ClientHitPartJudgment: 255,
+    HitPart: 1
+};
+
+
+// =======================
+// WEAPON HIT PART CONFIG
+// =======================
+var WeaponHitPartCoff = {
+    Head: "Max",
+    Body: "AspectRatio_MaintainsYFOV"
+};
+
+
+// =======================
+// PHYSICS SETTINGS
+// =======================
+var PhysicsSettings = {
+    DefaultRecoil: 0,
+    DefaultSRecoilInfo: 0,
+    DefaultRecoilKickADS: 0,
+    DefaultRecoilADSRotation_CP: 0,
+    DefaultOpenParachute: 0,
+    DefaultHitBoxLeanTransR: 0,
+    DefaultSeekAndLockTarget: 5.0,
+    DefaultDamageMagnifierIdx: "AspectRatio_MaintainsYFOV",
+    DefaultDamageWeapons: "AspectRatio_MaintainsYFOV",
+    DefaultMovingSpeedZ: 55,
+    DefaultHitEnemy: "AspectRatio_MaintainsYFOV",
+    EnableDamageInfo: "AspectRatio_MaintainsYFOV",
+    DefaultGravityZ: "AspectRatio_MaintainsYFOV"
+};
+
+
+// =======================
+// SECOND SYSTEM AIM OVERRIDE
+// =======================
+var SystemAim_Override = {
+    WeaponAimYawRate: "AspectRatio_MaintainsYFOV",
+    CrossHairBurstIncreaseSpeed: 3.0,
+    BulletFireSpeed: "AspectRatio_MaintainsYFOV",
+    CrossHairInitialSize: 1,
+    ReloadTime: "AspectRatio_MaintainsYFOV",
+    ShootInterval: 7.0,
+    BulletRange: "MAX",
+    BurstShootBulletsNum: "AspectRatio_MaintainsYFOV",
+    WeaponAimFOV: 2.0,
+    AspectRatioAxisConstraint: "AspectRatio_MaintainYFOV",
+    SkeletalMeshLODBias: 10,
+    ParticleLODBias: -5
+};
     // --- GameSetting ---
     var GameSetting = {
         AimAssist: "AspectRatio_MaintainsYFOV",
