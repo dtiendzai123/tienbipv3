@@ -1,3 +1,31 @@
+// =======================
+// CUSTOM AIM & GRIP CONFIG
+// =======================
+var CustomAimConfig = {
+    CustomizableAim_GripLevel: 999,                // tăng cao từ 1 lên max
+    AutoDrag_RepositionSystem: 999,                // tự động kéo & định vị
+    RealTimeGrip_PressureMod: 999,                // điều chỉnh lực kẹp real-time
+    AdvancedGrip_Balance: 999,                     // cân bằng nâng cao
+    FingerMotion_Assist: 999,                      // hỗ trợ chuyển động ngón tay
+    DynamicTouch_DriftPrevention: 999,            // chống trôi cảm ứng
+    FastGrip_ResetToggle: 999,                     // reset nhanh lực kẹp
+    PrecisionControl_Override: 999,               // override kiểm soát chính xác
+    DragStability_SyncSystem: 999,                // đồng bộ ổn định drag
+    QuickGrip_ResetOptions: 999,                   // các tùy chọn reset nhanh
+    // =======================
+    // BỔ SUNG TÍNH NĂNG MỚI
+    // =======================
+    MultiFinger_AdaptiveForce: 999,               // lực tùy biến theo ngón tay
+    AutoStabilize_HandTracking: 999,              // ổn định theo tay
+    MicroDrag_Smoothing: 999,                     // mượt hóa drag nhỏ
+    GripHeat_ResponseMod: 999,                     // phản hồi nhiệt độ
+    HapticFeedback_Intensity: 999,                // cường độ phản hồi rung
+    AntiSlip_Adjustment: 999,                     // chống trượt khi bấm
+    TurboGrip_Mode: 999,                           // chế độ grip cực nhanh
+    SmartPressure_Calibration: 999,               // tự động hiệu chỉnh lực
+    TouchZone_Expansion: 999,                      // mở rộng vùng cảm ứng
+    ReactionTime_Optimization: 999                // tối ưu phản ứng nhanh
+};
 var Basic = {
         WeaponAimYawRate: 99999,
         CrossHairBurstIncreaseSpeed: 99,
