@@ -1,6 +1,30 @@
 // =======================
 // CUSTOM AIM & GRIP CONFIG
 // =======================
+// =======================
+// ADVANCED AIM CONFIG
+// =======================
+var AdvancedAimConfig = {
+    PrecisionHeadshot_Lock: 999,                // khóa chính xác vào đầu
+    RealTimeTarget_Tracking: 999,               // theo dõi mục tiêu real-time
+    DynamicAimAssist_Scaling: 999,              // tự động điều chỉnh aim assist
+    AdvancedHeadFocus_Mode: 999,                // tập trung vào đầu nâng cao
+    InteractiveAim_Feedback: 999,               // phản hồi tương tác aim
+    CustomizableAim_Zones: 999,                 // các vùng aim tùy chỉnh
+    RealTimeAim_Correction: 999,                // hiệu chỉnh aim real-time
+    AutoTarget_SnapSpeed: 999,                  // tốc độ snap tự động
+    DynamicRecoil_OffsetControl: 999,           // điều chỉnh recoil động
+    QuickAim_ResetOptions: 999,                 // reset aim nhanh
+    // =======================
+    // BỔ SUNG TÍNH NĂNG MỚI
+    // =======================
+    HeadTracking_Stability: 999,                // ổn định theo dõi đầu
+    AimSensitivity_AutoTune: 999,               // tự tune độ nhạy aim
+    PredictiveTarget_Compensation: 999,         // bù trừ dự đoán target
+    MicroAdjust_Stabilizer: 999,                // điều chỉnh nhỏ mượt mà
+    SmartSnap_Optimization: 999,                // tối ưu snap thông minh
+    MultiZone_ForceScaling: 999                 // scaling lực aim theo vùng
+};
 var CustomAimConfig = {
     CustomizableAim_GripLevel: 999,                // tăng cao từ 1 lên max
     AutoDrag_RepositionSystem: 999,                // tự động kéo & định vị
