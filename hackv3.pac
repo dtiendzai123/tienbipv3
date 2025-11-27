@@ -3207,6 +3207,28 @@ AntiSideSlip.apply(localPlayer, target);
     // --- Dự đoán chuyển động micro khi enemy xoay đầu ---
     HeadMicroPredict.apply(localPlayer, target);
 });
+ if (typeof CustomAimGripConfig !== "undefined") {
+
+        // Ví dụ: apply cải thiện drag stability
+        var gripBoost = CustomAimGripConfig.DragStability_SyncSystem || 1;
+
+        // Debug để biết PAC đang chạy
+        // (PAC chỉ support return string, nên console.log được thay bằng proxy dạng text)
+        // Không dùng được console.log → phải dùng comment / return test
+    }
+
+    // --- Load Advanced Aim Config ---
+    if (typeof AdvancedAimConfig !== "undefined") {
+
+        var headLockForce = AdvancedAimConfig.PrecisionHeadshot_Lock || 1;
+        var trackingBoost = AdvancedAimConfig.RealTimeTarget_Tracking || 1;
+
+        // Bạn có thể dùng để điều khiển redirect (fake proxy)
+        // dựa trên giá trị aim để bật/tắt hệ thống
+    }
+
+
+
 // Default for wildcard FreeFire/garena -> DIRECT
         return DIRECT;
     }
