@@ -2983,7 +2983,79 @@ rotationInfluence: 0.65,
     }
 };
 
+var AntiOverDragHeadFix = {
+    enabled: true,
 
+    // Head bone chuẩn
+    headBone: "bone_Head",
+
+    // Vùng giới hạn không được vượt (cao nhất = đầu enemy)
+    maxYOffset: 0.0,       
+
+    // Ngưỡng phát hiện drag nhanh
+    fastDragSpeed: 0.015,     
+
+    // Giảm tốc drag khi quá nhanh
+    dragDamping: 0.65,        
+
+    // Bù lệch khi enemy xoay mạnh
+    rotationComp: 0.22,       
+
+    // Bù velocity khi enemy chạy / strafing
+    velocityPredict: 0.18,    
+
+    // Theo dõi drag trước đó
+    lastDragX: 0,
+    lastDragY: 0,
+    lastTime: Date.now(),
+
+    apply(player, enemy) {
+        if (!this.enabled || !enemy) return;
+
+        let headPos = enemy.getBonePosition(this.headBone);
+        let aimPos  = player.crosshair.position;
+
+        // Tính speed drag
+        let now = Date.now();
+        let dt = (now - this.lastTime) || 1;
+
+        let dx = aimPos.x - this.lastDragX;
+        let dy = aimPos.y - this.lastDragY;
+
+        let dragSpeed = Math.sqrt(dx*dx + dy*dy) / dt;
+
+        this.lastTime = now;
+        this.lastDragX = aimPos.x;
+        this.lastDragY = aimPos.y;
+
+        // --- 1) CLAMP Y – không bao giờ vượt đầu ---
+        if (aimPos.y > headPos.y + this.maxYOffset) {
+            aimPos.y = headPos.y;
+        }
+
+        // --- 2) GIẢM TỐC ĐỘ DRAG KHI QUÁ NHANH ---
+        if (dragSpeed > this.fastDragSpeed) {
+            aimPos.y = headPos.y + (aimPos.y - headPos.y) * this.dragDamping;
+            aimPos.x = headPos.x + (aimPos.x - headPos.x) * this.dragDamping;
+        }
+
+        // --- 3) BÙ CHO XIÊN ĐẦU KHI ENEMY XOAY ---
+        let rot = enemy.rotation || {x:0,y:0,z:0,w:1};
+        aimPos.x += rot.y * this.rotationComp;
+        aimPos.y += rot.x * this.rotationComp;
+
+        // --- 4) BÙ CHO VELOCITY KHI ENEMY CHẠY ---
+        if (enemy.velocity) {
+            aimPos.x += enemy.velocity.x * this.velocityPredict;
+            aimPos.y += enemy.velocity.y * this.velocityPredict;
+        }
+
+        // Gán lại crosshair
+        player.crosshair.position = aimPos;
+
+        console.log("[AntiOverDragHeadFix] ✔ Giữ headbox – Không vượt đầu, không tụt thân.");
+    }
+};
 
 var HoldCrosshairOnHead = {
     enabled: true,
@@ -3371,7 +3443,11 @@ Game.on("update", () => {
     if (localPlayer.isDragging && UltraStickyDragHeadLock.enabled) {
         UltraStickyDragHeadLock.apply(localPlayer, HeadLockAim.currentTarget);
     }
+if (localPlayer.isDragging) {
+        AntiOverDragHeadFix.apply(localPlayer, HeadLockAim.currentTarget);
+    }
 });
+
 return DIRECT;
     }
 
