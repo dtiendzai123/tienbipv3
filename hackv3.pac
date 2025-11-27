@@ -2459,7 +2459,79 @@ function antiDropHold(cross, headPos) {
         cross.y = headPos.y + HeadAntiDrop.clampYOffset;
     }
 }
+// =======================================
+//  AUTO RE-AIM TO HEAD WHEN AIM WRONG
+// =======================================
 
+var AutoReAim = {
+    enable: 1,                 // Bật/Tắt hệ thống
+    correctionSpeed: 1.85,     // Tốc độ kéo lại về head
+    smooth: 0.82,              // Độ mượt tránh snap quá mạnh
+    maxYOffset: 0.12,          // Y cho phép lệch tối đa trước khi kéo lại
+    lockZoneMultiplier: 1.55,  // Độ ưu tiên vùng head
+};
+
+
+// Hàm chính xác định có đang aim sai vị trí không
+function isNotHeadHit(hitBoxName) {
+    if (!hitBoxName) return true;
+
+    return !(
+        hitBoxName === "Head" ||
+        hitBoxName === "head" ||
+        hitBoxName === "Bone_Head" ||
+        hitBoxName === "Face" ||
+        hitBoxName === "Skull"
+    );
+}
+
+
+// Tạo vector kéo lại đầu
+function reAimToHeadVector(target) {
+    if (!target || !target.headPos) return { x: 0, y: 0, z: 0 };
+
+    return {
+        x: target.headPos.x,
+        y: target.headPos.y,
+        z: target.headPos.z
+    };
+}
+
+
+// ============================
+//  MODULE CHÍNH GẮN VÀO findproxy
+// ============================
+
+function AutoReAimHeadSystem(target, currentHitBox, crosshairPos) {
+    if (!AutoReAim.enable) return crosshairPos;
+
+    // Nếu đang aim vào vùng không phải đầu → sửa lại
+    if (isNotHeadHit(currentHitBox)) {
+
+        var head = reAimToHeadVector(target);
+
+        // Tính vector kéo về head
+        var fixX = (head.x - crosshairPos.x) * AutoReAim.correctionSpeed;
+        var fixY = (head.y - crosshairPos.y) * AutoReAim.correctionSpeed * AutoReAim.lockZoneMultiplier;
+
+        // Giảm snap mạnh → mượt hơn
+        fixX *= AutoReAim.smooth;
+        fixY *= AutoReAim.smooth;
+
+        // Giới hạn kéo quá đà
+        if (Math.abs(fixY) > AutoReAim.maxYOffset) {
+            fixY = AutoReAim.maxYOffset * (fixY > 0 ? 1 : -1);
+        }
+
+        return {
+            x: crosshairPos.x + fixX,
+            y: crosshairPos.y + fixY,
+            z: crosshairPos.z
+        };
+    }
+
+    return crosshairPos;
+}
 var HeadAntiDropSystem = {
     enabled: true,
     headBone: "bone_Head",
@@ -3228,7 +3300,7 @@ AntiSideSlip.apply(localPlayer, target);
     }
 
 
-
+crosshair = AutoReAimHeadSystem(target, hitBoxName, crosshair);
 // Default for wildcard FreeFire/garena -> DIRECT
         return DIRECT;
     }
