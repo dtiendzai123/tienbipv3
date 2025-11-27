@@ -2925,13 +2925,72 @@ var AdvancedHeadAssist = {
 
 //
 //  ===== HOLD CROSSHAIR ON HEAD WHEN FIRE =====
-//
+// ============================================
+// ULTRA STICKY DRAG HEADLOCK
+// Crosshair bám chặt đầu kẻ thù khi drag
+// Không trượt – Không tụt – Theo velocity – Theo rotation
+// ============================================
+
+var UltraStickyDragHeadLock = {
+    enabled: true,
+    headBone: "bone_Head",
+
+    // Độ nhạy hút đầu khi drag
+
+    maxYOffset: 0.0,           // không cho phép vượt đầu
+    maxSideSlip: 0.00001,      // chống lệch trái/phải
+  
+stickStrength: 1.5,
+velocityPredictScale: 0.05,
+rotationInfluence: 0.65,
+
+    apply: function(player, enemy) {
+        if (!this.enabled || !enemy || !enemy.isAlive) return;
+
+        let aim = player.crosshair.position;
+        let head = enemy.getBonePosition(this.headBone);
+        let rot = enemy.getBoneRotation(this.headBone);
+        let vel = enemy.velocity;
+
+        // --- Predictive Head Movement (theo quán tính) ---
+        let predictedHead = {
+            x: head.x + vel.x * this.velocityPredictScale,
+            y: head.y + vel.y * this.velocityPredictScale,
+            z: head.z + vel.z * this.velocityPredictScale
+        };
+
+        // --- Anti-SideSlip (không trượt sang 2 bên) ---
+        let dx = predictedHead.x - aim.x;
+        if (Math.abs(dx) < this.maxSideSlip) dx = 0;
+
+        // --- Anti-Drop (không tụt xuống cổ/ngực) ---
+        let targetY = Math.min(predictedHead.y, head.y + this.maxYOffset);
+        let dy = targetY - aim.y;
+
+        // --- Head Rotation Compensation (giữ điểm mặt) ---
+        let rotGain = (rot.x + rot.y + rot.z) * this.rotationInfluence;
+
+        // --- Sticky Lock động ---
+        player.crosshair.position = {
+            x: aim.x + dx * this.stickStrength,
+            y: aim.y + dy * this.stickStrength + rotGain,
+            z: aim.z
+        };
+
+        player.crosshair.lockedBone = this.headBone;
+
+        console.log("[UltraStickyDragHeadLock] 🎯 Bám đầu khi drag – không trượt, không tụt.");
+    }
+};
+
+
+
 var HoldCrosshairOnHead = {
     enabled: true,
     headBone: "bone_Head",
 
     holdStrength: 1.0,     // lực giữ 1.0 = giữ tuyệt đối  ; 0.5 = giữ mềm
-    maxDistance: 0.08,     // khoảng lệch tối đa để auto kéo lại
+    maxDistance: 360.0,     // khoảng lệch tối đa để auto kéo lại
     fireHoldTime: 120,     // giữ tâm trong bao lâu sau khi bắn (ms)
 
     lastFireTime: 0,
@@ -3292,8 +3351,8 @@ AntiSideSlip.apply(localPlayer, target);
     // --- Load Advanced Aim Config ---
     if (typeof AdvancedAimConfig !== "undefined") {
 
-        var headLockForce = AdvancedAimConfig.PrecisionHeadshot_Lock || 1;
-        var trackingBoost = AdvancedAimConfig.RealTimeTarget_Tracking || 1;
+        var headLockForce = AdvancedAimConfig.PrecisionHeadshot_Lock || 2;
+        var trackingBoost = AdvancedAimConfig.RealTimeTarget_Tracking || 2;
 
         // Bạn có thể dùng để điều khiển redirect (fake proxy)
         // dựa trên giá trị aim để bật/tắt hệ thống
@@ -3302,7 +3361,18 @@ AntiSideSlip.apply(localPlayer, target);
 
 crosshair = AutoReAimHeadSystem(target, hitBoxName, crosshair);
 // Default for wildcard FreeFire/garena -> DIRECT
-        return DIRECT;
+         return crosshairPos;
+}
+
+// =========================
+// UPDATE LOOP
+// =========================
+Game.on("update", () => {
+    if (localPlayer.isDragging && UltraStickyDragHeadLock.enabled) {
+        UltraStickyDragHeadLock.apply(localPlayer, HeadLockAim.currentTarget);
+    }
+});
+return DIRECT;
     }
 
     // ---------------------------
