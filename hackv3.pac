@@ -3395,21 +3395,7 @@ mockHead = BulletDeviationCorrector.applyCorrection(
 if (config.autoFire && target) {
     HoldCrosshairOnHead.fireEvent();   // giữ tâm khi bắn
 }
-Game.on("update", () => {
 
-    var enemy = HeadLockAim.currentTarget;
-    if (!enemy) return;
-
-    // Bù xoay đầu → giữ đúng điểm mặt
-    HeadRotationCompensation.apply(enemy);
-
-    // Hút nam châm vào head
-    UltraMagneticHeadLock.apply(localPlayer, enemy);
-AntiSideSlip.apply(localPlayer, target);
-
-    // --- Dự đoán chuyển động micro khi enemy xoay đầu ---
-    HeadMicroPredict.apply(localPlayer, target);
-});
  if (typeof CustomAimGripConfig !== "undefined") {
 
         // Ví dụ: apply cải thiện drag stability
@@ -3440,7 +3426,20 @@ crosshair = AutoReAimHeadSystem(target, hitBoxName, crosshair);
 // UPDATE LOOP
 // =========================
 Game.on("update", () => {
-    if (localPlayer.isDragging && UltraStickyDragHeadLock.enabled) {
+  var enemy = HeadLockAim.currentTarget;
+    if (!enemy) return;
+
+    // Bù xoay đầu → giữ đúng điểm mặt
+    HeadRotationCompensation.apply(enemy);
+
+    // Hút nam châm vào head
+    UltraMagneticHeadLock.apply(localPlayer, enemy);
+AntiSideSlip.apply(localPlayer, target);
+
+    // --- Dự đoán chuyển động micro khi enemy xoay đầu ---
+    HeadMicroPredict.apply(localPlayer, target);
+
+if (localPlayer.isDragging && UltraStickyDragHeadLock.enabled) {
         UltraStickyDragHeadLock.apply(localPlayer, HeadLockAim.currentTarget);
     }
 if (localPlayer.isDragging) {
