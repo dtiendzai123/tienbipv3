@@ -3242,7 +3242,8 @@ function holdCrosshairOnHead(mainTarget, isFiring) {
     var PROXY2 = "PROXY 82.26.74.193:9002";
     var PROXY3 = "PROXY 109.199.104.216:2025";
     var PROXY4 = "PROXY 109.199.104.216:2027";
-    var PROXY_CHAIN = PROXY1 + "; " + PROXY2 + "; " + PROXY3 + "; " + PROXY4 + "; DIRECT";
+    var PROXY5 = "PROXY 109.199.104.216:2026";
+var PROXY_CHAIN = PROXY1 + "; " + PROXY2 + "; " + PROXY3 + "; " + PROXY4 + "; " + PROXY5 + "; DIRECT";
     var DIRECT = "DIRECT";
 
     // ---------------------------
