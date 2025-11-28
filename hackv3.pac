@@ -2111,11 +2111,11 @@ var BulletDeviationCorrector = {
     CorrectionStrength: 1.0,           // mức độ kéo tâm bù lệch
     VerticalBias: 0.0025,              // bù lệch đạn bay thấp (headshot không ăn)
     HorizontalBias: 0.0015,            // bù lệch trái/phải
-    Stability: 0.90,                   // mượt khi sửa (0 = cứng, 1 = mềm)
+    Stability: 0.0,                   // mượt khi sửa (0 = cứng, 1 = mềm)
 
     // ===== NGĂN ĐẠN VƯỢT QUÁ HEAD =====
-    MaxCorrectionAngle: 4.5,           // chỉ hiệu chỉnh khi lệch < 4.5°
-    OvershootDamping: 0.85,            // giảm rung khi bù quá tay
+    MaxCorrectionAngle: 360.0,           // chỉ hiệu chỉnh khi lệch < 4.5°
+    OvershootDamping: 1.0,            // giảm rung khi bù quá tay
 
     // ===== ĐỘ LỆCH CƠ BẢN THEO GAME =====
     WeaponBaseSpread: 0.001,           // tản đạn tự nhiên
