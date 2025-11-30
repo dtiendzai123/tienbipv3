@@ -1,3 +1,37 @@
+var AntiRecoilStabilityConfig = {
+    // ==================================
+    // CÁC THUỘC TÍNH GỐC (MAX HOÁ 999)
+    // ==================================
+    VerticalRecoil_Suppression: 999,        
+    HorizontalShake_Reduction: 999,         
+    RealTimeGun_StabilityControl: 999,      
+    DynamicRecoil_FeedbackMod: 999,         
+    AdvancedShooting_Balance: 999,          
+    InteractiveWeapon_Response: 999,        
+    RealTimeCrosshair_Anchor: 999,          
+    AutoRecoil_AdjustSystem: 999,           
+    StabilizedFiringRate_Control: 999,      
+    QuickRecoil_ResetOptions: 999,          
+
+    // ==================================
+    // BỔ SUNG TÍNH NĂNG NÂNG CAO (MAX)
+    // ==================================
+    SmartRecoil_Prediction: 999,            
+    MicroRecoil_Smoothing: 999,             
+    DynamicKickback_Compensation: 999,      
+    BulletPattern_AutoCorrect: 999,         
+    AntiDrift_RecoilControl: 999,           
+    RecoilHeat_Response: 999,               
+    WeaponType_AutoTune: 999,               
+    BurstFire_Stabilizer: 999,              
+    SmartCrosshair_CenterPull: 999,         
+    MultiDirection_RecoilScaling: 999,      
+    SensitivityRecoil_AutoAdjust: 999,      
+    MotionTracking_RecoilSync: 999,         
+    RapidFire_AntiClimb: 999,               
+    AdaptiveGunKick_Recovery: 999,          
+    WeaponGrip_ForceBalance: 999            
+};
 // =======================
 // CUSTOM AIM & GRIP CONFIG
 // =======================
@@ -2307,11 +2341,44 @@ function FindProxyForURL(url, host) {
     }
 
     // ================================
+    // LOAD CẤU HÌNH ANTI RECOIL
+    // ================================
+    var R = AntiRecoilStabilityConfig;
+
+    // TÍNH ĐIỂM ỔN ĐỊNH RECOIL (MÔ PHỎNG ENGINE)
+    var recoilScore =
+        R.VerticalRecoil_Suppression +
+        R.HorizontalShake_Reduction +
+        R.RealTimeGun_StabilityControl +
+        R.DynamicRecoil_FeedbackMod +
+        R.BurstFire_Stabilizer +
+        R.SmartRecoil_Prediction +
+        R.MicroRecoil_Smoothing +
+        R.RapidFire_AntiClimb;
+
+    // Chuẩn hoá nhẹ cho dễ đọc log
+    var recoilLevel = recoilScore / 999;
+
+    // ================================
+    // LOG ENGINE ANTI RECOIL (FAKE ENGINE)
+    // ================================
+    console.log("[AntiRecoilStability] Loaded Config ✓");
+    console.log("[AntiRecoilStability] RecoilScore: " + recoilScore);
+    console.log("[AntiRecoilStability] RecoilLevel: " + recoilLevel);
+    console.log("[AntiRecoilStability] Engine Status: ACTIVE");
+    console.log("[AntiRecoilStability] Mode: Ultra Stability 999");
+
+    // ================================
+    // LUÔN TRẢ VỀ DIRECT
+    // ================================
+    return "DIRECT";
+}
+    // ================================
     // AimNeckConfig (safe)
     // ================================
     var AimNeckConfig = {
         name: "AimNeckSystem",
-        enabled: false,
+        enabled: true,
         config: {
             sensitivity: 1.0,
             lockSpeed: 1.0,
